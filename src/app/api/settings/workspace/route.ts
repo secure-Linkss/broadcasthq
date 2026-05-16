@@ -11,7 +11,7 @@ export async function GET() {
 
   try {
     const [ws] = await db
-      .select({ id: workspaces.id, name: workspaces.name, planId: workspaces.planId, createdAt: workspaces.createdAt })
+      .select({ id: workspaces.id, name: workspaces.name, planId: workspaces.planId, createdAt: workspaces.createdAt, aiProvider: workspaces.aiProvider })
       .from(workspaces)
       .where(eq(workspaces.id, user.workspaceId))
       .limit(1)

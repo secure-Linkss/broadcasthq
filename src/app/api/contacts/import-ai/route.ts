@@ -1,11 +1,29 @@
 ﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
-import { db, contacts, importJobs } from '@/lib/db'
+import { db, contacts, importJobs, workspaces } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { getSessionUser, unauthorizedJson, forbiddenJson, serverErrorJson } from '@/lib/session'
-import { suggestCsvMapping } from '@/lib/anthropic'
 import { parse } from 'csv-parse/sync'
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
+import { aiComplete, getWorkspaceAiConfig, getPlatformFallbackConfig } from '@/lib/ai-provider'
+
+const CSV_SYSTEM_PROMPT = `You are an expert data mapper for a WhatsApp CRM called BroadcastHQ.
+Map CSV column headers to: phone (required), firstName, lastName, customFields (other fields).
+Return ONLY valid JSON. Be precise.`
+
+async function suggestCsvMappingWithConfig(headers: string[], aiConfig: { provider: string; apiKey: string; model?: string | null }) {
+  const result = await aiComplete(
+    aiConfig as Parameters<typeof aiComplete>[0],
+    [{
+      role: 'user',
+      content: `CSV headers: ${JSON.stringify(headers)}\n\nReturn JSON:\n{"phone":"col_or_null","firstName":"col_or_null","lastName":"col_or_null","customFields":{"our_field":"csv_col"},"confidence":0.0,"explanation":"brief"}`,
+    }],
+    CSV_SYSTEM_PROMPT,
+  )
+  const jsonMatch = result.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('No JSON in AI response')
+  return JSON.parse(jsonMatch[0])
+}
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser()
@@ -34,12 +52,32 @@ export async function POST(request: NextRequest) {
 
     // Phase 1: return AI column mapping suggestions
     if (!mappingJson) {
-      const suggestion = await suggestCsvMapping(headers)
+      // Resolve AI config: workspace key → platform fallback
+      const [ws] = await db
+        .select({ aiProvider: workspaces.aiProvider, aiApiKey: workspaces.aiApiKey, aiModel: workspaces.aiModel })
+        .from(workspaces)
+        .where(eq(workspaces.id, user.workspaceId))
+        .limit(1)
+
+      const aiConfig = getWorkspaceAiConfig(ws ?? { aiProvider: null, aiApiKey: null, aiModel: null })
+        ?? getPlatformFallbackConfig()
+
+      if (!aiConfig) {
+        return NextResponse.json({
+          error: 'No AI provider configured. Add your API key in Settings → AI Provider to enable smart column mapping.',
+          phase: 'no-ai',
+          headers,
+          preview: rows.slice(0, 3),
+        }, { status: 422 })
+      }
+
+      const suggestion = await suggestCsvMappingWithConfig(headers, aiConfig)
       return NextResponse.json({
         phase:      'suggest',
         headers,
         suggestion,
         preview:    rows.slice(0, 3),
+        provider:   aiConfig.provider,
       })
     }
 

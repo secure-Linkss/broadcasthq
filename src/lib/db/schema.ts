@@ -16,6 +16,10 @@ export const workspaces = pgTable('workspaces', {
   subscriptionStatus:   text('subscription_status').default('inactive'),
   billingPeriodEnd:     timestamp('billing_period_end'),
   isActive:             boolean('is_active').notNull().default(true),
+  // AI provider config — workspace brings their own key
+  aiProvider:           text('ai_provider').default('none'), // 'anthropic'|'openai'|'google'|'nvidia'|'none'
+  aiApiKey:             text('ai_api_key'),                  // encrypted at rest (base64+platform secret XOR)
+  aiModel:              text('ai_model'),                    // optional model override
   createdAt:            timestamp('created_at').defaultNow().notNull(),
   updatedAt:            timestamp('updated_at').defaultNow().notNull(),
 })
@@ -27,6 +31,7 @@ export const users = pgTable('users', {
   id:            uuid('id').defaultRandom().primaryKey(),
   workspaceId:   uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
   email:         text('email').notNull().unique(),
+  username:      text('username').unique(),               // optional username for login (lowercase)
   passwordHash:  text('password_hash'),
   name:          text('name'),
   role:          text('role').notNull().default('owner'),
@@ -37,6 +42,7 @@ export const users = pgTable('users', {
 }, (t) => ({
   workspaceIdx: index('users_workspace_idx').on(t.workspaceId),
   emailIdx:     uniqueIndex('users_email_idx').on(t.email),
+  usernameIdx:  uniqueIndex('users_username_idx').on(t.username),
 }))
 
 // ─── WHATSAPP CONNECTIONS ─────────────────────────────────────────────────────

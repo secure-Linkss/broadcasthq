@@ -16,18 +16,22 @@ import {
 import {
   Smartphone, ShieldCheck, Link2, Key, Bell, Building, Eye, EyeOff,
   Copy, CheckCheck, AlertTriangle, Loader2, Plus, Trash2, RotateCcw,
-  Code2, Clock, CheckCircle2,
+  Code2, Clock, CheckCircle2, Brain, ExternalLink, FlaskConical,
 } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 const tabs = [
-  { id: "workspace",  label: "Workspace",      icon: Building   },
-  { id: "whatsapp",   label: "WhatsApp",        icon: Smartphone },
-  { id: "api-keys",   label: "API Keys",        icon: Code2      },
-  { id: "notifications", label: "Notifications", icon: Bell      },
-  { id: "security",   label: "Security",        icon: Key        },
+  { id: "workspace",    label: "Workspace",      icon: Building   },
+  { id: "whatsapp",     label: "WhatsApp",        icon: Smartphone },
+  { id: "ai-provider",  label: "AI Provider",     icon: Brain      },
+  { id: "api-keys",     label: "API Keys",        icon: Code2      },
+  { id: "notifications",label: "Notifications",   icon: Bell       },
+  { id: "security",     label: "Security",        icon: Key        },
 ];
 
 interface WaConnection {
@@ -84,6 +88,18 @@ export default function SettingsPage() {
   const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey]       = useState<string | null>(null);
 
+  // AI Provider
+  const [aiProvider, setAiProvider]       = useState("none");
+  const [aiApiKey, setAiApiKey]           = useState("");
+  const [aiModel, setAiModel]             = useState("");
+  const [aiHasKey, setAiHasKey]           = useState(false);
+  const [aiMaskedKey, setAiMaskedKey]     = useState<string | null>(null);
+  const [aiLoading, setAiLoading]         = useState(true);
+  const [aiSaving, setAiSaving]           = useState(false);
+  const [aiTesting, setAiTesting]         = useState(false);
+  const [aiTestResult, setAiTestResult]   = useState<string | null>(null);
+  const [aiProviderOpts, setAiProviderOpts] = useState<{value:string;label:string;modelPlaceholder:string;keyPlaceholder:string;docsUrl:string}[]>([]);
+
   // Security
   const [pwForm, setPwForm]           = useState({ current: "", next: "", confirm: "" });
   const [pwSaving, setPwSaving]       = useState(false);
@@ -112,9 +128,21 @@ export default function SettingsPage() {
 
     fetch("/api/settings/whatsapp")
       .then(r => r.ok ? r.json() : null)
-      // API returns { status: {...} } — unwrap it
       .then(d => { if (d?.status) setWaData(d.status); })
       .finally(() => setWaLoading(false));
+
+    fetch("/api/settings/ai")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) {
+          setAiProvider(d.provider ?? "none");
+          setAiHasKey(!!d.hasApiKey);
+          setAiMaskedKey(d.maskedKey ?? null);
+          setAiModel(d.model ?? "");
+          setAiProviderOpts(d.providerOptions ?? []);
+        }
+      })
+      .finally(() => setAiLoading(false));
 
     loadKeys();
   }, [loadKeys]);
@@ -144,6 +172,52 @@ export default function SettingsPage() {
       else         toast.error(data.error ?? "Failed to save.");
     } finally {
       setWsSaving(false);
+    }
+  };
+
+  const saveAiProvider = async () => {
+    setAiSaving(true);
+    setAiTestResult(null);
+    try {
+      const res = await fetch("/api/settings/ai", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: aiProvider, apiKey: aiApiKey || undefined, model: aiModel || null }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAiHasKey(aiProvider !== "none" && (!!aiApiKey || aiHasKey));
+        setAiApiKey("");
+        if (aiApiKey) setAiMaskedKey(`...${aiApiKey.slice(-4)}`);
+        toast.success("AI provider saved.");
+      } else {
+        toast.error(data.error ?? "Failed to save AI provider.");
+      }
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  const testAiProvider = async () => {
+    if (aiProvider === "none") return;
+    setAiTesting(true);
+    setAiTestResult(null);
+    try {
+      const res = await fetch("/api/settings/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: aiProvider, apiKey: aiApiKey || undefined, model: aiModel || null }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAiTestResult("success");
+        toast.success("AI provider connected successfully!");
+      } else {
+        setAiTestResult("error:" + (data.error ?? "Unknown error"));
+        toast.error(data.error ?? "Test failed.");
+      }
+    } finally {
+      setAiTesting(false);
     }
   };
 
@@ -521,6 +595,166 @@ export default function SettingsPage() {
                     <p className="font-medium text-foreground text-sm">Subscribed Fields</p>
                     <p>Enable these webhook fields: <code className="bg-muted px-1 rounded">messages</code>, <code className="bg-muted px-1 rounded">message_deliveries</code>, <code className="bg-muted px-1 rounded">message_reads</code></p>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ── AI Provider ── */}
+          {activeTab === "ai-provider" && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base">AI Provider</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Connect your own AI API key. Used for smart CSV column mapping and campaign content generation.
+                    Your key is encrypted before storage and never shared.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {aiLoading ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-9 w-full" />
+                      <Skeleton className="h-9 w-full" />
+                    </div>
+                  ) : (
+                    <>
+                      {/* Provider selector */}
+                      <div className="space-y-2">
+                        <Label>Provider</Label>
+                        <Select value={aiProvider} onValueChange={setAiProvider} disabled={!canManage}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select AI provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No AI provider</SelectItem>
+                            {aiProviderOpts.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {aiProvider !== "none" && (
+                        <>
+                          {/* API Key */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label>API Key</Label>
+                              {aiHasKey && aiMaskedKey && (
+                                <span className="text-xs text-muted-foreground">
+                                  Current key: <code className="bg-muted px-1 rounded">{aiMaskedKey}</code>
+                                </span>
+                              )}
+                            </div>
+                            <Input
+                              type="password"
+                              placeholder={aiProviderOpts.find(o => o.value === aiProvider)?.keyPlaceholder ?? "Enter API key..."}
+                              value={aiApiKey}
+                              onChange={e => setAiApiKey(e.target.value)}
+                              disabled={!canManage}
+                            />
+                            {aiProvider === "nvidia" && (
+                              <p className="text-xs text-muted-foreground">
+                                NVIDIA NIM uses an OpenAI-compatible API. Get your key at{" "}
+                                <a href="https://build.nvidia.com" target="_blank" rel="noopener" className="text-primary hover:underline">build.nvidia.com</a>.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Optional model override */}
+                          <div className="space-y-2">
+                            <Label>Model <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                            <Input
+                              placeholder={aiProviderOpts.find(o => o.value === aiProvider)?.modelPlaceholder ?? "Default model"}
+                              value={aiModel}
+                              onChange={e => setAiModel(e.target.value)}
+                              disabled={!canManage}
+                            />
+                          </div>
+
+                          {/* Docs link */}
+                          {aiProviderOpts.find(o => o.value === aiProvider)?.docsUrl && (
+                            <a
+                              href={aiProviderOpts.find(o => o.value === aiProvider)?.docsUrl}
+                              target="_blank"
+                              rel="noopener"
+                              className="flex items-center gap-1 text-xs text-primary hover:underline w-fit"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Get API key →
+                            </a>
+                          )}
+
+                          {/* Test result */}
+                          {aiTestResult && (
+                            <div className={cn(
+                              "flex items-center gap-2 text-sm p-3 rounded-lg border",
+                              aiTestResult === "success"
+                                ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                : "bg-red-500/10 text-red-600 border-red-500/20"
+                            )}>
+                              {aiTestResult === "success"
+                                ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                : <AlertTriangle className="h-4 w-4 shrink-0" />}
+                              <span>{aiTestResult === "success" ? "Connected successfully" : aiTestResult.replace("error:", "")}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+                {canManage && (
+                  <CardFooter className="flex gap-2">
+                    <Button onClick={saveAiProvider} disabled={aiSaving || aiLoading} size="sm">
+                      {aiSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Save Provider
+                    </Button>
+                    {aiProvider !== "none" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={testAiProvider}
+                        disabled={aiTesting || (!aiApiKey && !aiHasKey)}
+                      >
+                        {aiTesting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <FlaskConical className="h-4 w-4 mr-1" />}
+                        Test Connection
+                      </Button>
+                    )}
+                  </CardFooter>
+                )}
+              </Card>
+
+              {/* Supported providers info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Supported Providers</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {[
+                      { name: "Anthropic Claude", models: "claude-haiku, claude-sonnet", badge: "Recommended" },
+                      { name: "OpenAI GPT",       models: "gpt-4o-mini, gpt-4o",        badge: null },
+                      { name: "Google Gemini",    models: "gemini-1.5-flash, gemini-pro", badge: null },
+                      { name: "NVIDIA NIM",       models: "llama-3.1, mistral, etc.",    badge: "Bring your own" },
+                    ].map(p => (
+                      <div key={p.name} className="p-3 rounded-lg border border-border space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{p.name}</p>
+                          {p.badge && <Badge variant="outline" className="text-[10px] h-4 px-1">{p.badge}</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{p.models}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-4">
+                    All providers use the same interface. Switch providers anytime without changing your workflow.
+                    AI features: smart CSV import mapping, campaign content suggestions.
+                  </p>
                 </CardContent>
               </Card>
             </div>

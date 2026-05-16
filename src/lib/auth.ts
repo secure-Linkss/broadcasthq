@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { db, users } from '@/lib/db'
-import { eq } from 'drizzle-orm'
+import { eq, or } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { recordLoginAttempt, isLoginLocked } from '@/lib/security'
@@ -32,24 +32,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        email:    { label: 'Email',    type: 'email' },
-        password: { label: 'Password', type: 'password' },
-        ip:       { label: 'IP',       type: 'text' },
+        email:    { label: 'Email or Username', type: 'text' },
+        password: { label: 'Password',          type: 'password' },
+        ip:       { label: 'IP',                type: 'text' },
       },
       authorize: async (credentials) => {
         const parsed = z.object({
-          email:    z.string().email(),
+          email:    z.string().min(1).max(254),  // accepts email OR username
           password: z.string().min(1),
           ip:       z.string().optional(),
         }).safeParse(credentials)
 
         if (!parsed.success) return null
 
-        const { email, password, ip } = parsed.data
-        const normalizedEmail = email.toLowerCase().trim()
+        const { email: emailOrUsername, password, ip } = parsed.data
+        const normalized = emailOrUsername.toLowerCase().trim()
 
-        // Per-email lockout check
-        const emailKey = `email:${normalizedEmail}`
+        // Per-identifier lockout check
+        const emailKey = `email:${normalized}`
         const ipKey    = `ip:${ip ?? 'unknown'}`
 
         const emailLock = isLoginLocked(emailKey)
@@ -60,10 +60,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error(`Account temporarily locked. Try again in ${remainingMin} minute(s).`)
         }
 
+        // Look up by email OR username
+        const isEmail = normalized.includes('@')
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.email, normalizedEmail))
+          .where(isEmail
+            ? eq(users.email, normalized)
+            : or(eq(users.username, normalized), eq(users.email, normalized))
+          )
           .limit(1)
 
         // Always hash-compare to prevent timing oracle

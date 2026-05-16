@@ -136,12 +136,30 @@ export default auth(function middleware(req) {
   // ── Admin routes — super_admin only ──────────────────────────────────────
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
     if (!session) {
+      // API routes: return 401 JSON (not redirect)
+      if (pathname.startsWith('/api/admin')) {
+        return applySecurityHeaders(
+          new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      }
       const url = req.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('callbackUrl', pathname)
       return applySecurityHeaders(NextResponse.redirect(url))
     }
     if (session.user?.role !== 'super_admin') {
+      // API routes: return 403 JSON
+      if (pathname.startsWith('/api/admin')) {
+        return applySecurityHeaders(
+          new NextResponse(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      }
       const url = req.nextUrl.clone()
       url.pathname = '/dashboard'
       return applySecurityHeaders(NextResponse.redirect(url))

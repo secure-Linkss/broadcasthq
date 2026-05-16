@@ -12,7 +12,8 @@ const schema = z.object({
   email:       z.string().email().max(254),
   password:    z.string().min(8).max(128),
   name:        z.string().min(1).max(100).optional(),
-  // Honeypot field â€” must be absent or empty
+  username:    z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, underscores').optional(),
+  // Honeypot field — must be absent or empty
   website:     z.string().optional(),
   _hp:         z.string().optional(),
 })
@@ -38,8 +39,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
     }
 
-    const { companyName, email, password, name } = parsed.data
-    const normalizedEmail = email.toLowerCase().trim()
+    const { companyName, email, password, name, username } = parsed.data
+    const normalizedEmail    = email.toLowerCase().trim()
+    const normalizedUsername = username?.toLowerCase().trim() || null
 
     // Constant-time email check (prevent timing oracle)
     const [existing] = await db
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
     const [user] = await db.insert(users).values({
       workspaceId,
       email:        normalizedEmail,
+      username:     normalizedUsername,
       passwordHash,
       name:         (name ?? companyName).trim(),
       role,

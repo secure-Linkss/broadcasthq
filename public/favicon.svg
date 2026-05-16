@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <rect width="40" height="40" rx="9" fill="url(#bg)"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5b21b6"/>
+      <stop offset="100%" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <!-- Tower body -->
+  <rect x="17.5" y="22" width="5" height="11" rx="2.5" fill="white"/>
+  <!-- Arms -->
+  <path d="M7 29 L17.5 24" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M22.5 24 L33 29" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Center node -->
+  <circle cx="20" cy="20" r="2.5" fill="white"/>
+  <!-- Signal arcs -->
+  <path d="M13 20 A7 7 0 0 1 27 20" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M9 20 A11 11 0 0 1 31 20" stroke="white" stroke-width="1.75" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M5 20 A15 15 0 0 1 35 20" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+</svg>

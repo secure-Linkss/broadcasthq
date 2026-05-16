@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionUser } from '@/lib/session'
 import { db, messages } from '@/lib/db'

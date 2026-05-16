@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { db, campaigns, contacts } from '@/lib/db'
 import { getSessionUser } from '@/lib/session'
@@ -65,7 +66,7 @@ export async function GET() {
         id:     `low-delivery-${worst.id}`,
         type:   'critical',
         title:  'Low delivery rate detected',
-        detail: `"${worst.name}" — ${worst.deliveryRate.toFixed(0)}% delivery · ${worst.readRate.toFixed(0)}% read`,
+        detail: `"${worst.name}" â€” ${worst.deliveryRate.toFixed(0)}% delivery Â· ${worst.readRate.toFixed(0)}% read`,
         action: { label: 'View', href: `/campaigns/${worst.id}` },
       })
     }
@@ -76,7 +77,7 @@ export async function GET() {
         id:     'inactive-contacts',
         type:   'warning',
         title:  `${inactive.toLocaleString()} inactive contacts`,
-        detail: 'No engagement in 60+ days — consider a win-back campaign',
+        detail: 'No engagement in 60+ days â€” consider a win-back campaign',
         action: { label: 'Filter', href: '/contacts' },
       })
     }
@@ -102,3 +103,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, whatsappConnections } from '@/lib/db'
 import { eq } from 'drizzle-orm'
@@ -59,3 +60,4 @@ export async function PATCH(request: NextRequest) {
     return serverErrorJson()
   }
 }
+

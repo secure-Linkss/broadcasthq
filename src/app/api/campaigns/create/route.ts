@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, campaigns } from '@/lib/db'
 import { z } from 'zod'
@@ -56,3 +57,4 @@ function mapCampaign(row: typeof campaigns.$inferSelect) {
     createdAt:       row.createdAt.toISOString(),
   }
 }
+

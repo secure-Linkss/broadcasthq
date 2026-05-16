@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, campaigns, contacts, messages, templates } from '@/lib/db'
 import { eq, and, gte, sql, desc, lt } from 'drizzle-orm'
@@ -152,3 +153,4 @@ export async function GET(request: NextRequest) {
     return serverErrorJson()
   }
 }
+

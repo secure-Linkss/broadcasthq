@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { db, whatsappConnections, templates } from '@/lib/db'
 import { eq } from 'drizzle-orm'
@@ -92,3 +93,4 @@ export async function POST() {
     return serverErrorJson()
   }
 }
+

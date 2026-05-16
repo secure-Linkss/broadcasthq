@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { db, workspaces, users, messages, campaigns, botBlocks, auditLogs } from '@/lib/db'
 import { sql, eq, gte, desc, and, lt } from 'drizzle-orm'
@@ -26,19 +27,19 @@ export async function GET() {
       inactiveWorkspaces,     // created but no messages
       flaggedWorkspaces,      // isActive=false
 
-      // Message anomalies — workspaces with >20% failure rate this month
+      // Message anomalies â€” workspaces with >20% failure rate this month
       failureRateByWorkspace,
 
-      // Audit log events — recent security-relevant actions
+      // Audit log events â€” recent security-relevant actions
       recentAuditEvents,
 
-      // Campaign spam signals — campaigns with very high recipients sent quickly
+      // Campaign spam signals â€” campaigns with very high recipients sent quickly
       highVolumeCampaigns,
 
-      // Users with suspicious activity — multiple workspaces or invited but never active
+      // Users with suspicious activity â€” multiple workspaces or invited but never active
       suspiciousUsers,
 
-      // Opt-out spike — workspaces with high opt-out rates
+      // Opt-out spike â€” workspaces with high opt-out rates
       optOutByWorkspace,
     ] = await Promise.all([
       db.select({ c: sql<number>`count(*)::int` }).from(botBlocks),
@@ -150,7 +151,7 @@ export async function GET() {
         .limit(10),
     ])
 
-    // Compute a simple risk score per workspace (0–100)
+    // Compute a simple risk score per workspace (0â€“100)
     const riskMap: Record<string, number> = {}
     for (const row of failureRateByWorkspace) {
       const failRate = row.total > 0 ? (row.failed / row.total) * 100 : 0
@@ -184,3 +185,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

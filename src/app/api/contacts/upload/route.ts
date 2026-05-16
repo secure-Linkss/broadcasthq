@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, contacts } from '@/lib/db'
 import { getSessionUser, unauthorizedJson, forbiddenJson, serverErrorJson } from '@/lib/session'
@@ -117,3 +118,4 @@ export async function POST(request: NextRequest) {
     return serverErrorJson()
   }
 }
+

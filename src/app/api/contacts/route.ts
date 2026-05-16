@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, contacts } from '@/lib/db'
 import { eq, and, desc, ilike, or, sql } from 'drizzle-orm'
@@ -99,3 +100,4 @@ function mapContact(row: typeof contacts.$inferSelect) {
     lastActive:   row.lastActive?.toISOString() ?? null,
   }
 }
+

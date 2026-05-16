@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { db, campaigns, messages, contacts, importJobs } from '@/lib/db'
 import { getSessionUser } from '@/lib/session'
@@ -83,7 +84,7 @@ export async function GET() {
           id:        `campaign-done-${c.id}`,
           type:      'campaign_completed',
           title:     `${c.name} completed`,
-          meta:      `${c.recipientsCount.toLocaleString()} sent · ${c.readRate.toFixed(1)}% read rate`,
+          meta:      `${c.recipientsCount.toLocaleString()} sent Â· ${c.readRate.toFixed(1)}% read rate`,
           timestamp: c.updatedAt.toISOString(),
         })
       }
@@ -105,7 +106,7 @@ export async function GET() {
           id:        `import-${imp.id}`,
           type:      'import_done',
           title:     'Contact import completed',
-          meta:      `${imp.newContacts} new · ${imp.skippedContacts} skipped`,
+          meta:      `${imp.newContacts} new Â· ${imp.skippedContacts} skipped`,
           timestamp: imp.updatedAt.toISOString(),
         })
       }
@@ -131,3 +132,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

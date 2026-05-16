@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { db, workspaces } from '@/lib/db'
@@ -119,3 +120,4 @@ function mapPriceToPlan(priceId?: string): string | null {
   }
   return map[priceId] ?? null
 }
+

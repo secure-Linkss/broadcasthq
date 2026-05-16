@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db, botBlocks } from '@/lib/db'
@@ -68,3 +69,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

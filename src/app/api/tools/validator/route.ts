@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, contacts } from '@/lib/db'
 import { and, eq, inArray } from 'drizzle-orm'
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
           if (r.normalized && existingSet.has(r.normalized)) r.inContacts = true
         }
       } catch {
-        // DB unavailable — proceed without contact check
+        // DB unavailable â€” proceed without contact check
       }
     }
 
@@ -129,3 +130,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

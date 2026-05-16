@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, whatsappConnections, contacts, messages } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
 
         if (!conn) continue
 
-        // Incoming messages → upsert contact + insert message
+        // Incoming messages â†’ upsert contact + insert message
         for (const msg of value.messages ?? []) {
           const phone = `+${msg.from}`
 
@@ -104,3 +105,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

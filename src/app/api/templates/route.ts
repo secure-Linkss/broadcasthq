@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, templates } from '@/lib/db'
 import { eq, and, desc } from 'drizzle-orm'
@@ -68,4 +69,5 @@ export async function POST(request: NextRequest) {
     return serverErrorJson()
   }
 }
+
 

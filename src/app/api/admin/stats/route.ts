@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { db, workspaces, users, campaigns, messages, contacts } from '@/lib/db'
 import { sql, gte, and, eq, desc } from 'drizzle-orm'
@@ -87,3 +88,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

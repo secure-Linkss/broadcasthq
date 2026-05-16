@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, campaigns } from '@/lib/db'
 import { eq, and, desc, sql, ilike } from 'drizzle-orm'
@@ -54,3 +55,4 @@ function mapCampaign(row: typeof campaigns.$inferSelect) {
     templateVariables: row.templateVariables,
   }
 }
+

@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { db, campaigns, contacts, messages, importJobs } from '@/lib/db'
 import { getSessionUser } from '@/lib/session'
@@ -120,7 +121,7 @@ export async function GET() {
         id:        `low-delivery-${c.id}`,
         type:      'warning',
         title:     'Low delivery rate detected',
-        message:   `"${c.name}" — ${c.deliveryRate.toFixed(0)}% delivery · ${c.readRate.toFixed(0)}% read rate`,
+        message:   `"${c.name}" â€” ${c.deliveryRate.toFixed(0)}% delivery Â· ${c.readRate.toFixed(0)}% read rate`,
         createdAt: c.updatedAt.toISOString(),
         action:    { label: 'View Campaign', href: `/campaigns/${c.id}` },
       })
@@ -140,7 +141,7 @@ export async function GET() {
 
     const inactive = inactiveCount[0]?.count ?? 0
     if (inactive > 0) {
-      const pct = 0 // compute if total contacts known — omit pct for now
+      const pct = 0 // compute if total contacts known â€” omit pct for now
       notifications.push({
         id:        'inactive-contacts',
         type:      'info',
@@ -195,3 +196,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

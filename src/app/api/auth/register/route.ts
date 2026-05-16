@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, users, workspaces } from '@/lib/db'
 import { eq } from 'drizzle-orm'
@@ -11,7 +12,7 @@ const schema = z.object({
   email:       z.string().email().max(254),
   password:    z.string().min(8).max(128),
   name:        z.string().min(1).max(100).optional(),
-  // Honeypot field — must be absent or empty
+  // Honeypot field â€” must be absent or empty
   website:     z.string().optional(),
   _hp:         z.string().optional(),
 })
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Bot detection
     const bot = detectBot(request)
     if (bot.isBot) {
-      // Fake success to confuse bots — don't reveal detection
+      // Fake success to confuse bots â€” don't reveal detection
       return NextResponse.json({ success: true }, { status: 201 })
     }
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       .limit(1)
 
     if (existing) {
-      // Don't reveal "email already registered" — return generic message
+      // Don't reveal "email already registered" â€” return generic message
       return NextResponse.json({ error: 'Could not create account. Please try again or contact support.' }, { status: 409 })
     }
 
@@ -79,3 +80,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

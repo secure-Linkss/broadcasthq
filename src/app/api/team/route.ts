@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, users } from '@/lib/db'
 import { eq, and, asc } from 'drizzle-orm'
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User already in this workspace' }, { status: 409 })
     }
 
-    // Create user with temp password — they'll reset via email in production
+    // Create user with temp password â€” they'll reset via email in production
     const tempPassword = randomBytes(16).toString('hex')
     const passwordHash = await bcrypt.hash(tempPassword, 12)
 
@@ -84,3 +85,4 @@ export async function POST(request: NextRequest) {
     return serverErrorJson()
   }
 }
+

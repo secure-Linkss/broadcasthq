@@ -7,7 +7,7 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, User, AtSign, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export default function SignupPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName]           = useState("");
+  const [username, setUsername]   = useState("");
   const [email, setEmail]         = useState("");
   const [password, setPassword]   = useState("");
 
@@ -34,7 +35,7 @@ export default function SignupPage() {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, username: username.trim() || undefined, companyName: name }),
     });
 
     const data = await res.json();
@@ -84,6 +85,26 @@ export default function SignupPage() {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
+              />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="username">
+              Username <span className="text-muted-foreground text-xs">(optional — used to login)</span>
+            </Label>
+            <div className="relative">
+              <AtSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="username"
+                placeholder="yourhandle"
+                type="text"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                disabled={isLoading}
+                className="pl-9 bg-card"
+                value={username}
+                onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
               />
             </div>
           </div>

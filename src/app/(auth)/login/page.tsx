@@ -7,13 +7,13 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { AtSign, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -21,7 +21,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     const result = await signIn("credentials", {
-      email,
+      email: identifier,
       password,
       redirect: false,
     });
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (result?.error) {
-      toast.error("Invalid email or password. Please try again.");
+      toast.error("Invalid credentials. Check your email/username and password.");
       return;
     }
 
@@ -43,27 +43,28 @@ export default function LoginPage() {
       <div className="flex flex-col space-y-2 text-center lg:text-left">
         <h2 className="text-3xl font-bold tracking-tight text-foreground">Welcome back</h2>
         <p className="text-sm text-muted-foreground">
-          Enter your email to sign in to your workspace.
+          Sign in with your email or username.
         </p>
       </div>
 
       <form onSubmit={onSubmit}>
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="identifier">Email or Username</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <AtSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                id="email"
-                placeholder="name@example.com"
-                type="email"
+                id="identifier"
+                placeholder="name@example.com or username"
+                type="text"
                 autoCapitalize="none"
-                autoComplete="email"
+                autoComplete="username"
                 autoCorrect="off"
+                spellCheck={false}
                 disabled={isLoading}
                 className="pl-9 bg-card"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
                 required
               />
             </div>

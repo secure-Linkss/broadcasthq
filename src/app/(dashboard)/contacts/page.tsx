@@ -521,6 +521,21 @@ export default function ContactsPage() {
     setSelectedIds(next);
   };
 
+  const exportContacts = (ids?: string[]) => {
+    const params = new URLSearchParams();
+    if (ids?.length) {
+      params.set('ids', ids.join(','));
+    } else {
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (tierFilter !== 'all')   params.set('tier', tierFilter);
+    }
+    const url = `/api/contacts/export?${params.toString()}`;
+    const a   = Object.assign(document.createElement('a'), { href: url });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -633,7 +648,7 @@ export default function ContactsPage() {
             <HeartPulse className="mr-2 h-4 w-4 text-primary" />
             List Health
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground shrink-0">
+          <Button variant="ghost" size="sm" className="text-muted-foreground shrink-0" onClick={() => exportContacts()}>
             <Download className="mr-2 h-4 w-4" /> Export
           </Button>
         </div>
@@ -645,7 +660,7 @@ export default function ContactsPage() {
           <span>{selectedIds.size} selected</span>
           <div className="h-4 w-px bg-primary/30 mx-1" />
           <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary">Add Tag</Button>
-          <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary">Export</Button>
+          <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary" onClick={() => exportContacts([...selectedIds])}>Export</Button>
           <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary">Add to Campaign</Button>
           <Button variant="ghost" size="sm" className="h-7 text-destructive hover:bg-destructive/20 hover:text-destructive ml-auto">
             <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import {
 import {
   MessageSquare, CheckCircle2, Eye, Activity, TrendingUp, TrendingDown,
   Download, Calendar, RefreshCw, Crown, Flame, Snowflake, Zap, Users,
-  Target, Clock, BarChart3, ArrowUpRight, ArrowDownRight, FileText,
+  Target, Clock, BarChart3, ArrowUpRight, ArrowDownRight, FileText, Loader2,
 } from "lucide-react";
 import { getTierConfig, type EngagementTier } from "@/lib/engagement";
 
@@ -123,13 +123,202 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
+// ── PDF Report ────────────────────────────────────────────────────────────────
+
+async function downloadPdfReport(
+  data: AnalyticsData,
+  chartRef: React.RefObject<HTMLDivElement | null>,
+  range: string
+) {
+  const { default: jsPDF } = await import("jspdf");
+  const html2canvas         = (await import("html2canvas")).default;
+
+  const doc    = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const W      = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const now    = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  // ── Cover header ──────────────────────────────────────────────────────────
+  doc.setFillColor(124, 58, 237);
+  doc.rect(0, 0, W, 38, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("BroadcastHQ Analytics Report", margin, 18);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Period: ${range.toUpperCase()}  ·  Generated: ${now}`, margin, 28);
+  doc.setTextColor(0, 0, 0);
+
+  let y = 48;
+
+  // ── KPI summary table ─────────────────────────────────────────────────────
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text("Key Performance Indicators", margin, y);
+  y += 6;
+
+  const kpis = [
+    ["Metric",          "Value",                                         "Note"],
+    ["Total Sent",      fmtN(data.summary.totalMessagesSent),            `Across ${data.summary.totalCampaigns} campaigns`],
+    ["Delivery Rate",   `${data.summary.deliveryRate}%`,                 "Messages delivered"],
+    ["Read Rate",       `${data.summary.readRate}%`,                     "Of delivered messages"],
+    ["Reply Rate",      `${data.trends?.replyRate ?? 0}%`,               `${fmtN(data.summary.replyCount ?? 0)} replies`],
+    ["Active Contacts", fmtN(data.summary.activeContacts),               `of ${fmtN(data.summary.totalContacts)} total`],
+    ["Active Campaigns",data.summary.activeCampaigns.toString(),         "Currently running"],
+    ["Fail Rate",       `${data.summary.failRate ?? 0}%`,                "Delivery failures"],
+  ];
+
+  const colWidths = [55, 35, 82];
+  const rowH      = 8;
+  kpis.forEach((row, ri) => {
+    const isHeader = ri === 0;
+    if (isHeader) {
+      doc.setFillColor(240, 237, 255);
+    } else {
+      doc.setFillColor(ri % 2 === 0 ? 250 : 255, ri % 2 === 0 ? 250 : 255, ri % 2 === 0 ? 250 : 255);
+    }
+    doc.rect(margin, y, colWidths[0] + colWidths[1] + colWidths[2], rowH, "F");
+    doc.setFont("helvetica", isHeader ? "bold" : "normal");
+    doc.setFontSize(9);
+    let x = margin + 2;
+    row.forEach((cell, ci) => {
+      doc.text(cell, x, y + 5.5);
+      x += colWidths[ci];
+    });
+    // row border
+    doc.setDrawColor(220, 220, 220);
+    doc.rect(margin, y, colWidths[0] + colWidths[1] + colWidths[2], rowH, "S");
+    y += rowH;
+  });
+
+  y += 8;
+
+  // ── Chart screenshots ─────────────────────────────────────────────────────
+  if (chartRef.current) {
+    try {
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 1.5,
+        useCORS: true,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const imgW    = W - margin * 2;
+      const imgH    = (canvas.height * imgW) / canvas.width;
+
+      // Page break if needed
+      if (y + imgH > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = margin;
+      }
+
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.text("Message Volume Chart", margin, y);
+      y += 5;
+      doc.addImage(imgData, "PNG", margin, y, imgW, Math.min(imgH, 80));
+      y += Math.min(imgH, 80) + 8;
+    } catch { /* chart capture failed — skip */ }
+  }
+
+  // ── Top campaigns table ───────────────────────────────────────────────────
+  if (data.topCampaigns?.length) {
+    if (y + 60 > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Top Campaigns", margin, y);
+    y += 6;
+
+    const campRows = [
+      ["Campaign", "Recipients", "Delivery %", "Read %"],
+      ...data.topCampaigns.slice(0, 10).map(c => [
+        c.name.substring(0, 32),
+        fmtN(c.recipientsCount),
+        `${c.deliveryRate.toFixed(1)}%`,
+        `${c.readRate.toFixed(1)}%`,
+      ]),
+    ];
+    const cw = [80, 28, 28, 28];
+    campRows.forEach((row, ri) => {
+      const isH = ri === 0;
+      doc.setFillColor(isH ? 240 : ri % 2 === 0 ? 250 : 255, isH ? 237 : ri % 2 === 0 ? 250 : 255, isH ? 255 : ri % 2 === 0 ? 250 : 255);
+      doc.rect(margin, y, cw.reduce((a, b) => a + b, 0), rowH, "F");
+      doc.setFont("helvetica", isH ? "bold" : "normal");
+      doc.setFontSize(9);
+      let x = margin + 2;
+      row.forEach((cell, ci) => { doc.text(cell, x, y + 5.5); x += cw[ci]; });
+      doc.setDrawColor(220, 220, 220);
+      doc.rect(margin, y, cw.reduce((a, b) => a + b, 0), rowH, "S");
+      y += rowH;
+    });
+    y += 8;
+  }
+
+  // ── Daily breakdown table ─────────────────────────────────────────────────
+  if (data.dailyBreakdown?.length) {
+    if (y + 60 > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Daily Breakdown", margin, y);
+    y += 6;
+
+    const dailyRows = [
+      ["Date", "Sent", "Delivered", "Read", "Failed"],
+      ...data.dailyBreakdown.slice(-14).map(d => [
+        new Date(d.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
+        fmtN(d.sent),
+        fmtN(d.delivered),
+        fmtN(d.read),
+        fmtN(d.failed),
+      ]),
+    ];
+    const dw = [38, 28, 32, 28, 28];
+    dailyRows.forEach((row, ri) => {
+      const isH = ri === 0;
+      if (y + rowH > doc.internal.pageSize.getHeight() - 10) { doc.addPage(); y = margin; }
+      doc.setFillColor(isH ? 240 : ri % 2 === 0 ? 250 : 255, isH ? 237 : ri % 2 === 0 ? 250 : 255, isH ? 255 : ri % 2 === 0 ? 250 : 255);
+      doc.rect(margin, y, dw.reduce((a, b) => a + b, 0), rowH, "F");
+      doc.setFont("helvetica", isH ? "bold" : "normal");
+      doc.setFontSize(9);
+      let x = margin + 2;
+      row.forEach((cell, ci) => { doc.text(cell, x, y + 5.5); x += dw[ci]; });
+      doc.setDrawColor(220, 220, 220);
+      doc.rect(margin, y, dw.reduce((a, b) => a + b, 0), rowH, "S");
+      y += rowH;
+    });
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`BroadcastHQ  ·  Page ${i} of ${pages}  ·  ${now}`, margin, doc.internal.pageSize.getHeight() - 6);
+    doc.setTextColor(0, 0, 0);
+  }
+
+  doc.save(`broadcasthq-analytics-${range}-${Date.now()}.pdf`);
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-  const [data, setData]       = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [range, setRange]     = useState("30d");
-  const [tab, setTab]         = useState("overview");
+  const [data, setData]           = useState<AnalyticsData | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [range, setRange]         = useState("30d");
+  const [tab, setTab]             = useState("overview");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const chartRef                  = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -199,7 +388,21 @@ export default function AnalyticsPage() {
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
           <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
-            <Download className="h-3.5 w-3.5" /> Export
+            <Download className="h-3.5 w-3.5" /> CSV
+          </Button>
+          <Button
+            size="sm"
+            disabled={!data || pdfLoading}
+            className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={async () => {
+              if (!data) return;
+              setPdfLoading(true);
+              try { await downloadPdfReport(data, chartRef, range); }
+              finally { setPdfLoading(false); }
+            }}
+          >
+            {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+            {pdfLoading ? "Generating…" : "PDF Report"}
           </Button>
         </div>
       </div>
@@ -227,7 +430,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Delivery Funnel */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div ref={chartRef} className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold">Message Volume</CardTitle>

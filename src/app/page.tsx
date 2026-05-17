@@ -21,7 +21,7 @@ import {
   Brain,
   Inbox,
 } from "lucide-react";
-import { motion, useScroll, useTransform, type Variants } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, type Variants } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -70,101 +70,414 @@ function Counter({ to, suffix = "", decimals = 0, duration = 1800 }: { to: numbe
   return <span ref={ref}>{decimals > 0 ? val.toFixed(decimals) : val.toLocaleString()}{suffix}</span>;
 }
 
-/* ─── Promo stats (fallback until real data loads) ─── */
-const PROMO_STATS = {
-  teams: 500, campaigns: 12400, messages: 4200000, readRate: 87.3, contacts: 890000,
-};
-const LIVE_THRESHOLD = { teams: 2, campaigns: 3 };
+/* ─── Interactive dashboard preview ─── */
+type DashPage = 'dashboard' | 'campaigns' | 'contacts' | 'inbox' | 'analytics' | 'templates'
+const DASH_NAV: { id: DashPage; label: string }[] = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'campaigns', label: 'Campaigns' },
+  { id: 'contacts',  label: 'Contacts'  },
+  { id: 'inbox',     label: 'Inbox'     },
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'templates', label: 'Templates' },
+]
+const NAV_IDX: Record<DashPage, number> = { dashboard: 0, campaigns: 1, contacts: 2, inbox: 3, analytics: 4, templates: 5 }
+const PROMO_STATS = { teams: 500, campaigns: 12400, messages: 4200000, readRate: 87.3, contacts: 890000 }
+const LIVE_THRESHOLD = { teams: 2, campaigns: 3 }
+type DStats = typeof PROMO_STATS
+const fmtN = (v: number) => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`
 
-/* ─── Dashboard preview ─── */
+function SC({ label, value, change, color, bg, border }: { label: string; value: string; change: string; color: string; bg: string; border: string }) {
+  return (
+    <div className="rounded-xl p-3 border" style={{ background: bg, borderColor: border }}>
+      <p className="text-[9px] font-medium uppercase tracking-widest mb-2 leading-none" style={{ color: `${color}99` }}>{label}</p>
+      <p className="text-[19px] font-bold text-white leading-none mb-1.5">{value}</p>
+      <p className="text-[9px] font-semibold" style={{ color }}>{change}</p>
+    </div>
+  )
+}
+
+function PageOverview({ s }: { s: DStats }) {
+  return (
+    <div className="p-4 space-y-3 h-full overflow-auto" style={{ scrollbarWidth: 'none' }}>
+      <div>
+        <p className="text-[14px] font-semibold text-white">Good morning, John 👋</p>
+        <p className="text-[10px] text-white/35">Monday, 17 May 2026 — Week 20</p>
+      </div>
+      <div className="grid grid-cols-3 gap-2.5">
+        <SC label="Today's Messages" value="12,430" change="↑ 18% vs yesterday" color="#a78bfa" bg="rgba(167,139,250,0.1)" border="rgba(167,139,250,0.2)" />
+        <SC label="Active Campaigns" value="3"       change="● Running live"     color="#34d399" bg="rgba(52,211,153,0.1)"  border="rgba(52,211,153,0.2)"  />
+        <SC label="New Contacts"     value="84"      change="Added today"        color="#f59e0b" bg="rgba(245,158,11,0.1)"  border="rgba(245,158,11,0.2)"  />
+      </div>
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+        <p className="text-[9px] text-white/30 font-semibold uppercase tracking-widest mb-2.5">Recent Campaigns</p>
+        {[
+          { name: "Summer Flash Sale 🔥", status: "Active",    read: "91%", c: "#34d399", bg: "rgba(52,211,153,0.12)"  },
+          { name: "Re-engagement 3.0",    status: "Completed", read: "84%", c: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+          { name: "New Collection Drop",  status: "Scheduled", read: "—",   c: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+          { name: "Flash Deal Apr",       status: "Completed", read: "88%", c: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+        ].map((r, i) => (
+          <div key={i} className="flex items-center gap-2 py-2 border-b border-white/[0.04] last:border-0">
+            <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: r.c }} />
+            <p className="text-[11px] text-white font-medium truncate flex-1">{r.name}</p>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{ color: r.c, background: r.bg }}>{r.status}</span>
+            <p className="text-[10px] text-white/50 w-8 text-right shrink-0">{r.read}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        {["+ New Campaign", "Import Contacts", "Reports"].map((a, i) => (
+          <div key={i} className={cn("flex-1 h-8 rounded-lg flex items-center justify-center text-[10px] font-semibold border", i === 0 ? "bg-violet-600 text-white border-violet-500 shadow-[0_0_10px_rgba(124,58,237,0.3)]" : "bg-white/[0.03] text-white/40 border-white/[0.07]")}>{a}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PageCampaigns({ s }: { s: DStats }) {
+  const bars = [48,63,41,78,59,85,67,91,55,74,62,100]
+  return (
+    <div className="p-4 space-y-3 h-full overflow-auto" style={{ scrollbarWidth: 'none' }}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <SC label="Sent"      value={fmtN(s.messages)} change="↑ 18% MoM"   color="#a78bfa" bg="rgba(167,139,250,0.1)" border="rgba(167,139,250,0.2)" />
+        <SC label="Delivered" value="98.7%"            change="↑ 0.4% MoM"  color="#34d399" bg="rgba(52,211,153,0.1)"  border="rgba(52,211,153,0.2)"  />
+        <SC label="Read Rate" value={`${s.readRate}%`} change="↑ 12% MoM"   color="#60a5fa" bg="rgba(96,165,250,0.1)"  border="rgba(96,165,250,0.2)"  />
+        <SC label="Campaigns" value={fmtN(s.campaigns)}change="All time"    color="#f59e0b" bg="rgba(245,158,11,0.1)"  border="rgba(245,158,11,0.2)"  />
+      </div>
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 pt-3 pb-2 shrink-0" style={{ height: 100 }}>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-[10px] text-white/45 font-medium">Delivery — Last 12 Days</span>
+          <div className="flex gap-2.5">
+            <span className="flex items-center gap-1 text-[9px] text-violet-400"><span className="h-1.5 w-1.5 rounded-full bg-violet-500 inline-block"/>Sent</span>
+            <span className="flex items-center gap-1 text-[9px] text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block"/>Delivered</span>
+          </div>
+        </div>
+        <div className="flex items-end gap-1" style={{ height: 50 }}>
+          {bars.map((h, i) => (
+            <div key={i} className="flex-1 flex items-end" style={{ height: '100%' }}>
+              <div style={{ width: '100%', height: `${h}%`, background: i === bars.length-1 ? 'linear-gradient(to top,#7c3aed,#c4b5fd)' : i >= bars.length-3 ? 'rgba(124,58,237,0.5)' : 'rgba(124,58,237,0.2)', borderRadius: '2px 2px 0 0' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        {[
+          { name: "Summer Flash Sale 🔥", status: "Active",    sent: "5,000", read: "91%", c: "#34d399", bg: "rgba(52,211,153,0.12)"  },
+          { name: "Re-engagement 3.0",    status: "Completed", sent: "2,341", read: "84%", c: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+          { name: "New Collection Drop",  status: "Draft",     sent: "—",     read: "—",   c: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+        ].map((r, i) => (
+          <div key={i} className="flex items-center gap-2.5 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+            <span className="h-2 w-2 rounded-full shrink-0" style={{ background: r.c }} />
+            <p className="text-[11px] text-white font-medium truncate flex-1">{r.name}</p>
+            <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold shrink-0" style={{ color: r.c, background: r.bg }}>{r.status}</span>
+            <p className="text-[10px] text-white/40 w-10 text-right shrink-0">{r.sent}</p>
+            <p className="text-[10px] text-white font-semibold w-8 text-right shrink-0">{r.read}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PageContacts({ s }: { s: DStats }) {
+  const rows = [
+    { init: "SC", name: "Sarah Chen",    phone: "+44 7700 900 123", tag: "VIP",    tier: "#a78bfa", tl: "VIP"    },
+    { init: "MR", name: "Marcus Rivera", phone: "+1 213 555 0147",  tag: "Active", tier: "#34d399", tl: "Active" },
+    { init: "AP", name: "Aisha Patel",   phone: "+91 98765 43210",  tag: "Warm",   tier: "#fbbf24", tl: "Warm"   },
+    { init: "DK", name: "David Kim",     phone: "+82 10 1234 5678", tag: "Cold",   tier: "#6b7280", tl: "Cold"   },
+    { init: "EW", name: "Emma Wilson",   phone: "+61 412 345 678",  tag: "Active", tier: "#34d399", tl: "Active" },
+  ]
+  return (
+    <div className="p-4 space-y-3 h-full overflow-auto" style={{ scrollbarWidth: 'none' }}>
+      <div className="grid grid-cols-3 gap-2.5">
+        <SC label="Total Contacts" value={fmtN(s.contacts)}                         change="All time"     color="#a78bfa" bg="rgba(167,139,250,0.1)" border="rgba(167,139,250,0.2)" />
+        <SC label="Active"         value={fmtN(Math.floor(s.contacts * 0.95))}       change="Subscribed"   color="#34d399" bg="rgba(52,211,153,0.1)"  border="rgba(52,211,153,0.2)"  />
+        <SC label="Opted Out"      value={fmtN(Math.floor(s.contacts * 0.013))}      change="Unsubscribed" color="#f87171" bg="rgba(248,113,113,0.1)" border="rgba(248,113,113,0.2)" />
+      </div>
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+        <div className="grid grid-cols-[28px_1fr_55px_52px] gap-2 px-3 py-2 border-b border-white/[0.05]">
+          {['','Name / Phone','Tag','Tier'].map((h,i) => <span key={i} className="text-[9px] text-white/25 font-semibold uppercase tracking-wide">{h}</span>)}
+        </div>
+        {rows.map((r, i) => (
+          <div key={i} className="grid grid-cols-[28px_1fr_55px_52px] gap-2 items-center px-3 py-2 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[8px] font-bold text-white">{r.init}</div>
+            <div>
+              <p className="text-[11px] text-white font-medium leading-none mb-0.5">{r.name}</p>
+              <p className="text-[9px] text-white/30 font-mono">{r.phone}</p>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.06] text-white/50 border border-white/[0.08] text-center truncate">{r.tag}</span>
+            <div className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: r.tier }} />
+              <span className="text-[9px]" style={{ color: r.tier }}>{r.tl}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PageInbox() {
+  return (
+    <div className="flex h-full overflow-hidden">
+      <div className="hidden sm:flex w-44 border-r border-white/[0.05] bg-[#0a101c] p-2 flex-col gap-1 overflow-auto shrink-0" style={{ scrollbarWidth: 'none' }}>
+        <p className="text-[9px] text-white/25 font-semibold uppercase tracking-widest px-2 py-1">Conversations</p>
+        {[
+          { init: "SC", name: "Sarah Chen",    preview: "Thanks for the offer! 🎉",  time: "2m",  unread: 2, active: true  },
+          { init: "MR", name: "Marcus Rivera",  preview: "Can you tell me more...",   time: "15m", unread: 0, active: false },
+          { init: "GT", name: "GlobalTech",    preview: "Yes, we're interested...",  time: "1h",  unread: 1, active: false },
+          { init: "EW", name: "Emma Wilson",    preview: "Got it, thanks! 👍",        time: "3h",  unread: 0, active: false },
+        ].map((c, i) => (
+          <div key={i} className={cn("flex items-start gap-2 rounded-lg px-2 py-2 cursor-pointer", c.active ? "bg-violet-600/20 border border-violet-500/20" : "hover:bg-white/[0.03]")}>
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0 mt-0.5">{c.init}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-0.5">
+                <p className="text-[10px] text-white font-medium truncate">{c.name}</p>
+                <span className="text-[8px] text-white/25 shrink-0 ml-1">{c.time}</span>
+              </div>
+              <p className="text-[9px] text-white/40 truncate">{c.preview}</p>
+            </div>
+            {c.unread > 0 && <span className="h-4 w-4 rounded-full bg-violet-500 flex items-center justify-center text-[8px] text-white font-bold shrink-0">{c.unread}</span>}
+          </div>
+        ))}
+      </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="border-b border-white/[0.05] px-4 py-2.5 flex items-center gap-2.5 shrink-0 bg-[#0c1220]">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0">SC</div>
+          <div>
+            <p className="text-[11px] text-white font-semibold leading-none mb-0.5">Sarah Chen</p>
+            <p className="text-[9px] text-emerald-400 leading-none">● Online · Summer Flash Sale</p>
+          </div>
+          <div className="ml-auto flex gap-2">
+            <div className="h-6 px-2.5 bg-white/[0.04] border border-white/[0.07] rounded-lg flex items-center">
+              <span className="text-[9px] text-white/40">Assign</span>
+            </div>
+            <div className="h-6 px-2.5 bg-emerald-600/80 rounded-lg flex items-center">
+              <span className="text-[9px] text-white font-medium">Resolve</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 p-3 space-y-2.5 overflow-auto" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex justify-end">
+            <div className="max-w-[76%] bg-violet-600/85 rounded-2xl rounded-tr-sm px-3 py-2 shadow-[0_2px_8px_rgba(124,58,237,0.3)]">
+              <p className="text-[10px] text-white leading-relaxed">Hi Sarah! 🎉 Your exclusive Summer deal expires tonight. Tap to claim ↗</p>
+              <p className="text-[8px] text-violet-200/50 mt-0.5 text-right">11:42 AM ✓✓</p>
+            </div>
+          </div>
+          <div className="flex justify-start">
+            <div className="max-w-[76%] bg-white/[0.06] border border-white/[0.07] rounded-2xl rounded-tl-sm px-3 py-2">
+              <p className="text-[10px] text-white/80 leading-relaxed">OMG thanks!! Already claimed it 🙌 Best deal ever!</p>
+              <p className="text-[8px] text-white/25 mt-0.5">11:43 AM</p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <div className="max-w-[76%] bg-violet-600/85 rounded-2xl rounded-tr-sm px-3 py-2 shadow-[0_2px_8px_rgba(124,58,237,0.3)]">
+              <p className="text-[10px] text-white leading-relaxed">Amazing! Enjoy 20% off. Let us know if you need anything 💜</p>
+              <p className="text-[8px] text-violet-200/50 mt-0.5 text-right">11:44 AM ✓✓</p>
+            </div>
+          </div>
+          <div className="flex justify-start">
+            <div className="max-w-[76%] bg-white/[0.06] border border-white/[0.07] rounded-2xl rounded-tl-sm px-3 py-2">
+              <p className="text-[10px] text-white/80 leading-relaxed">Can I ask about the new collection drop too? 🛍️</p>
+              <p className="text-[8px] text-white/25 mt-0.5">11:46 AM</p>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-white/[0.05] p-2.5 flex items-center gap-2 bg-[#0a101c] shrink-0">
+          <div className="flex-1 bg-white/[0.04] border border-white/[0.07] rounded-xl px-3 py-2">
+            <p className="text-[10px] text-white/20">Type a reply...</p>
+          </div>
+          <div className="h-8 w-8 rounded-xl bg-violet-600 flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(124,58,237,0.4)]">
+            <span className="text-white text-[10px] font-bold">↑</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PageAnalytics({ s }: { s: DStats }) {
+  const pts = [55,68,49,81,62,88,71,93,58,79,65,98]
+  const W = 300, H = 60
+  const poly = pts.map((v, i) => `${(i/(pts.length-1))*W},${H-(v/100)*H}`).join(' ')
+  const area = `M0,${H} ${pts.map((v, i) => `L${(i/(pts.length-1))*W},${H-(v/100)*H}`).join(' ')} L${W},${H} Z`
+  return (
+    <div className="p-4 space-y-3 h-full overflow-auto" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5">
+          {["7D","30D","90D"].map((t, i) => (
+            <span key={i} className={cn("text-[9px] px-2.5 py-1 rounded-full font-medium cursor-pointer border", i === 1 ? "bg-violet-600/20 border-violet-500/30 text-violet-300" : "bg-white/[0.04] border-white/[0.07] text-white/35")}>{t}</span>
+          ))}
+        </div>
+        <span className="text-[9px] text-violet-400 font-medium cursor-pointer">Export ↓</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        <SC label="Delivery Rate"  value="98.7%"                      change="↑ 0.4% MoM"  color="#34d399" bg="rgba(52,211,153,0.1)"  border="rgba(52,211,153,0.2)"  />
+        <SC label="Read Rate"      value={`${s.readRate.toFixed(1)}%`} change="↑ 12% MoM"   color="#60a5fa" bg="rgba(96,165,250,0.1)"  border="rgba(96,165,250,0.2)"  />
+        <SC label="Response Rate"  value="23.4%"                      change="↑ 5.1% MoM"  color="#a78bfa" bg="rgba(167,139,250,0.1)" border="rgba(167,139,250,0.2)" />
+        <SC label="Opt-out Rate"   value="0.8%"                       change="↓ 0.2% MoM"  color="#f87171" bg="rgba(248,113,113,0.1)" border="rgba(248,113,113,0.2)" />
+      </div>
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 pt-3 pb-2">
+        <p className="text-[10px] text-white/45 font-medium mb-2">Delivery Trend — May 2026</p>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 50 }}>
+          <defs>
+            <linearGradient id="lGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={area} fill="url(#lGrad)" />
+          <polyline points={poly} fill="none" stroke="#a78bfa" strokeWidth="1.5" strokeLinejoin="round" />
+          <circle cx={(11/11)*W} cy={H-(98/100)*H} r="3" fill="#a78bfa" />
+        </svg>
+        <div className="flex justify-between mt-1">
+          {['1 May','5','9','13','17','21','25','30'].map((d,i) => <span key={i} className="text-[8px] text-white/20">{d}</span>)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PageTemplates() {
+  const tmpls = [
+    { name: "Summer Flash Sale",  cat: "MARKETING", used: 12, preview: "Hi {{name}}! 🎉 Your exclusive Summer deal...", c: "#a78bfa" },
+    { name: "Product Launch",     cat: "MARKETING", used: 8,  preview: "Exciting news! Our new product is finally...", c: "#a78bfa" },
+    { name: "Re-engagement",      cat: "UTILITY",   used: 23, preview: "We miss you! Come back and see what's new...", c: "#60a5fa" },
+    { name: "Order Confirmed",    cat: "UTILITY",   used: 45, preview: "Your order #{{id}} has been confirmed ✅...",   c: "#60a5fa" },
+    { name: "Welcome Message",    cat: "UTILITY",   used: 67, preview: "Welcome to {{brand}}! 🎉 We're so excited...", c: "#60a5fa" },
+    { name: "Promo Code Drop",    cat: "MARKETING", used: 3,  preview: "{{name}}, your code {{code}} expires in...",   c: "#a78bfa" },
+  ]
+  return (
+    <div className="p-4 space-y-3 h-full overflow-auto" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-1.5">
+          <p className="text-[10px] text-white/20">Search templates...</p>
+        </div>
+        <div className="h-7 px-3 bg-violet-600 rounded-lg flex items-center shrink-0 shadow-[0_0_8px_rgba(124,58,237,0.3)]">
+          <span className="text-white text-[10px] font-semibold">+ New</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {tmpls.map((t, i) => (
+          <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 hover:border-white/[0.14] transition-colors cursor-pointer group">
+            <div className="flex items-start justify-between mb-1.5">
+              <p className="text-[11px] text-white font-semibold leading-tight group-hover:text-violet-200 transition-colors">{t.name}</p>
+              <span className="text-[8px] px-1.5 py-0.5 rounded font-bold ml-1 shrink-0" style={{ color: t.c, background: `${t.c}18` }}>{t.cat}</span>
+            </div>
+            <p className="text-[9px] text-white/40 leading-relaxed mb-1.5 line-clamp-2">{t.preview}</p>
+            <p className="text-[8px] text-white/25">Used {t.used}× this month</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Main dashboard preview ─── */
 function DashboardPreview() {
-  const [stats, setStats] = useState(PROMO_STATS);
-  const [isLive, setIsLive] = useState(false);
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState<DashPage>('campaigns')
+  const [dir, setDir] = useState(1)
+  const [stats, setStats] = useState(PROMO_STATS)
+  const [isLive, setIsLive] = useState(false)
 
   useEffect(() => {
     fetch('/api/public/stats')
       .then(r => r.json())
       .then(d => {
-        const s = d?.stats;
-        if (!s) return;
+        const s = d?.stats
+        if (!s) return
         if (s.teams >= LIVE_THRESHOLD.teams && s.campaigns >= LIVE_THRESHOLD.campaigns) {
-          setStats({ teams: s.teams, campaigns: s.campaigns, messages: s.messages, readRate: s.readRate || 87.3, contacts: s.contacts });
-          setIsLive(true);
+          setStats({ teams: s.teams, campaigns: s.campaigns, messages: s.messages, readRate: s.readRate || 87.3, contacts: s.contacts })
+          setIsLive(true)
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+  }, [])
 
-  const statCards = [
-    { label: "Messages Sent",   value: stats.messages,  suffix: "",  fmt: (v: number) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.25)" },
-    { label: "Delivered",       value: 98.7,             suffix: "%", fmt: (v: number) => v.toFixed(1),                                                                                        color: "#34d399", bg: "rgba(52,211,153,0.12)",  border: "rgba(52,211,153,0.25)"  },
-    { label: "Avg Read Rate",   value: stats.readRate,   suffix: "%", fmt: (v: number) => v.toFixed(1),                                                                                        color: "#60a5fa", bg: "rgba(96,165,250,0.12)",  border: "rgba(96,165,250,0.25)"  },
-    { label: "Active Contacts", value: stats.contacts,   suffix: "",  fmt: (v: number) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`, color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.25)"  },
-  ];
+  const goTo = (id: DashPage) => {
+    setDir(NAV_IDX[id] >= NAV_IDX[page] ? 1 : -1)
+    setPage(id)
+  }
 
-  const feed = [
-    { flag: "🇬🇧", event: "Delivered",  campaign: "Summer Flash Sale",   ms: "12ms", color: "#34d399" },
-    { flag: "🇩🇪", event: "Read",        campaign: "Re-engagement 3.0",   ms: "3ms",  color: "#60a5fa" },
-    { flag: "🇺🇸", event: "Replied",     campaign: "Summer Flash Sale",   ms: "8ms",  color: "#a78bfa" },
-    { flag: "🇳🇬", event: "Delivered",   campaign: "New Collection Drop", ms: "21ms", color: "#34d399" },
-  ];
+  const META: Record<DashPage, { title: string; sub: string; url: string }> = {
+    dashboard: { title: 'Overview',   sub: 'Mon, 17 May 2026',                                     url: 'dashboard' },
+    campaigns: { title: 'Campaigns',  sub: `May 2026 · ${stats.campaigns.toLocaleString()} total`, url: 'campaigns' },
+    contacts:  { title: 'Contacts',   sub: `${fmtN(stats.contacts)} contacts synced`,              url: 'contacts'  },
+    inbox:     { title: 'Inbox',      sub: '3 unread conversations',                               url: 'inbox'     },
+    analytics: { title: 'Analytics',  sub: 'Last 30 days · May 2026',                             url: 'analytics' },
+    templates: { title: 'Templates',  sub: '6 active templates',                                  url: 'templates' },
+  }
 
-  const bars = [48, 63, 41, 78, 59, 85, 67, 91, 55, 74, 62, 100];
+  const content: Record<DashPage, React.ReactNode> = {
+    dashboard: <PageOverview  s={stats} />,
+    campaigns: <PageCampaigns s={stats} />,
+    contacts:  <PageContacts  s={stats} />,
+    inbox:     <PageInbox />,
+    analytics: <PageAnalytics s={stats} />,
+    templates: <PageTemplates />,
+  }
 
   return (
-    <div ref={sectionRef} className="rounded-2xl border border-white/[0.1] shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden bg-[#0c1220]">
-      {/* Top accent line */}
+    <div className="rounded-2xl border border-white/[0.1] shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden bg-[#0c1220]">
+      {/* Accent line */}
       <div className="h-[2px] w-full bg-gradient-to-r from-violet-600 via-fuchsia-500 to-indigo-500" />
 
       {/* Browser chrome */}
-      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/[0.06] bg-[#0f1723]">
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/[0.06] bg-[#0f1723] select-none">
         <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]/70" />
         <div className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]/70" />
         <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]/70" />
-        <div className="ml-3 flex-1 max-w-xs bg-white/[0.04] border border-white/[0.07] rounded-md px-3 py-1 text-[11px] text-white/40 font-mono flex items-center gap-2">
+        <div className="ml-3 flex-1 max-w-xs bg-white/[0.04] border border-white/[0.07] rounded-md px-3 py-1 text-[11px] text-white/40 font-mono flex items-center gap-2 overflow-hidden">
           <span className="text-emerald-400 text-[10px]">🔒</span>
-          app.broadcasthq.com/dashboard
+          <AnimatePresence mode="wait">
+            <motion.span key={page + '_url'} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }} className="truncate">
+              app.broadcasthq.com/{META[page].url}
+            </motion.span>
+          </AnimatePresence>
         </div>
-        {isLive && (
-          <span className="ml-auto text-[10px] text-emerald-400 font-bold tracking-wider flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-            LIVE DATA
+        {isLive ? (
+          <span className="ml-auto text-[10px] text-emerald-400 font-bold tracking-wider flex items-center gap-1.5 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />LIVE DATA
           </span>
+        ) : (
+          <span className="ml-auto text-[9px] text-white/20 tracking-widest shrink-0 font-mono">DEMO</span>
         )}
       </div>
 
-      {/* Dashboard body */}
-      <div className="flex" style={{ height: 480 }}>
-        {/* Sidebar */}
-        <div className="w-48 border-r border-white/[0.05] bg-[#0a101c] p-4 hidden md:flex flex-col gap-1.5 flex-shrink-0">
+      {/* Mobile tab bar */}
+      <div className="flex md:hidden border-b border-white/[0.05] bg-[#0a101c] overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {DASH_NAV.map(item => (
+          <button key={item.id} onClick={() => goTo(item.id)} className={cn(
+            "flex-none px-4 py-2.5 text-[11px] font-medium whitespace-nowrap transition-colors border-b-2 outline-none",
+            page === item.id ? "text-violet-300 border-violet-500 bg-violet-500/5" : "text-white/35 border-transparent"
+          )}>{item.label}</button>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div className="flex h-[420px] md:h-[480px]">
+        {/* Sidebar — desktop only */}
+        <div className="hidden md:flex w-48 border-r border-white/[0.05] bg-[#0a101c] p-4 flex-col gap-1.5 shrink-0">
           <div className="flex items-center gap-2 px-2 mb-5">
             <div className="h-6 w-6 rounded-md bg-violet-600 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(124,58,237,0.5)]">
               <span className="text-white text-[9px] font-black">BQ</span>
             </div>
             <span className="text-[12px] font-semibold text-white tracking-tight">BroadcastHQ</span>
           </div>
-
-          {[
-            { label: "Dashboard",  active: false },
-            { label: "Campaigns",  active: true  },
-            { label: "Contacts",   active: false },
-            { label: "Inbox",      active: false },
-            { label: "Analytics",  active: false },
-            { label: "Templates",  active: false },
-            { label: "Settings",   active: false },
-          ].map((item, i) => (
-            <div key={i} className={cn(
-              "h-8 rounded-lg flex items-center gap-2.5 px-3 text-[11px] font-medium transition-colors",
-              item.active
-                ? "bg-violet-600/25 text-violet-300 shadow-[inset_0_0_0_1px_rgba(167,139,250,0.2)]"
-                : "text-white/35 hover:text-white/60 hover:bg-white/[0.04]"
-            )}>
-              <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", item.active ? "bg-violet-400" : "bg-white/15")} />
+          {DASH_NAV.map(item => (
+            <motion.button key={item.id} onClick={() => goTo(item.id)}
+              whileHover={{ x: 2 }} whileTap={{ scale: 0.97 }} transition={{ duration: 0.1 }}
+              className={cn("h-8 rounded-lg flex items-center gap-2.5 px-3 text-[11px] font-medium transition-all text-left w-full outline-none cursor-pointer",
+                page === item.id ? "bg-violet-600/25 text-violet-300 shadow-[inset_0_0_0_1px_rgba(167,139,250,0.2)]" : "text-white/35 hover:text-white/70 hover:bg-white/[0.05]"
+              )}
+            >
+              <motion.span className="h-1.5 w-1.5 rounded-full shrink-0"
+                style={{ background: page === item.id ? '#a78bfa' : 'rgba(255,255,255,0.15)' }}
+                animate={page === item.id ? { scale: [1, 1.6, 1] } : { scale: 1 }}
+                transition={{ duration: 0.3 }}
+              />
               {item.label}
-            </div>
+            </motion.button>
           ))}
-
           <div className="mt-auto border-t border-white/[0.05] pt-3">
             <div className="flex items-center gap-2 px-2">
               <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0">JD</div>
@@ -177,90 +490,45 @@ function DashboardPreview() {
         </div>
 
         {/* Main */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Topbar */}
-          <div className="border-b border-white/[0.05] px-5 py-3 flex items-center justify-between bg-[#0c1220] shrink-0">
-            <div>
-              <p className="text-[13px] font-semibold text-white leading-none mb-1">Campaigns</p>
-              <p className="text-[10px] text-white/30">May 2026 · {stats.campaigns.toLocaleString()} total</p>
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Topbar with animated title */}
+          <div className="border-b border-white/[0.05] px-4 py-2.5 flex items-center justify-between bg-[#0c1220] shrink-0">
+            <div className="overflow-hidden">
+              <AnimatePresence mode="wait">
+                <motion.div key={page + '_hdr'} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}>
+                  <p className="text-[13px] font-semibold text-white leading-none mb-1">{META[page].title}</p>
+                  <p className="text-[10px] text-white/30">{META[page].sub}</p>
+                </motion.div>
+              </AnimatePresence>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-20 border border-white/[0.07] rounded-lg bg-white/[0.03] flex items-center justify-center">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="h-7 px-2.5 border border-white/[0.07] rounded-lg bg-white/[0.03] hidden sm:flex items-center">
                 <span className="text-[10px] text-white/35">Filter ▾</span>
               </div>
-              <div className="h-7 px-3 bg-violet-600 rounded-lg flex items-center gap-1 shadow-[0_0_12px_rgba(124,58,237,0.4)]">
-                <span className="text-white text-[10px] font-semibold">+ New Campaign</span>
+              <div className="h-7 px-3 bg-violet-600 rounded-lg flex items-center shadow-[0_0_12px_rgba(124,58,237,0.4)]">
+                <span className="text-white text-[10px] font-semibold">+ New</span>
               </div>
             </div>
           </div>
 
-          <div className="flex-1 p-4 space-y-3.5 overflow-hidden">
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-2.5">
-              {statCards.map((s, i) => (
-                <div key={i} className="rounded-xl p-3 border" style={{ background: s.bg, borderColor: s.border }}>
-                  <p className="text-[9px] font-medium uppercase tracking-widest mb-2" style={{ color: `${s.color}99` }}>{s.label}</p>
-                  <p className="text-[20px] font-bold text-white leading-none mb-1.5">{s.fmt(s.value)}</p>
-                  <p className="text-[9px] font-semibold" style={{ color: s.color }}>↑ trending up</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Chart */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 pt-3 pb-2 shrink-0" style={{ height: 108 }}>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] text-white/45 font-medium">Message Delivery — Last 12 Days</span>
-                <div className="flex gap-3">
-                  <span className="flex items-center gap-1 text-[9px] text-violet-400"><span className="h-1.5 w-1.5 rounded-full bg-violet-500 inline-block" />Sent</span>
-                  <span className="flex items-center gap-1 text-[9px] text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />Delivered</span>
-                </div>
-              </div>
-              <div className="flex items-end gap-1" style={{ height: 56 }}>
-                {bars.map((h, i) => (
-                  <div key={i} className="flex-1" style={{ height: '100%', display: 'flex', alignItems: 'flex-end' }}>
-                    <div style={{
-                      width: '100%',
-                      height: `${h}%`,
-                      background: i === bars.length - 1
-                        ? 'linear-gradient(to top, #7c3aed, #c4b5fd)'
-                        : i >= bars.length - 3
-                        ? 'rgba(124,58,237,0.5)'
-                        : 'rgba(124,58,237,0.2)',
-                      borderRadius: '2px 2px 0 0',
-                      transition: 'height 0.3s ease',
-                    }} />
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between mt-1.5">
-                {['6 May','8 May','10 May','12 May','14 May','17 May'].map((d, i) => (
-                  <span key={i} className="text-[8px] text-white/20">{d}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Live feed */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-              <div className="flex items-center gap-2 mb-2.5">
-                <span className="text-[9px] font-semibold text-white/40 uppercase tracking-widest">Live Event Stream</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-auto" />
-              </div>
-              <div className="space-y-1.5">
-                {feed.map((e, i) => (
-                  <div key={i} className="flex items-center gap-3 text-[10px] py-1 border-b border-white/[0.04] last:border-0">
-                    <span className="text-sm leading-none">{e.flag}</span>
-                    <span className="text-white/40 font-mono truncate flex-1">{e.campaign}</span>
-                    <span className="font-semibold" style={{ color: e.color }}>{e.event}</span>
-                    <span className="text-white/25 font-mono">{e.ms}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* Animated page content */}
+          <div className="flex-1 overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              <motion.div key={page}
+                initial={{ opacity: 0, x: dir * 22 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: dir * -22 }}
+                transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="absolute inset-0"
+              >
+                {content[page]}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 /* ─── Bento feature card ─── */

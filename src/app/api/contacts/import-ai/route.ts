@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, contacts, importJobs, workspaces } from '@/lib/db'
 import { eq } from 'drizzle-orm'
@@ -6,17 +6,21 @@ import { getSessionUser, unauthorizedJson, forbiddenJson, serverErrorJson } from
 import { parse } from 'csv-parse/sync'
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
 import { aiComplete, getWorkspaceAiConfig, getPlatformFallbackConfig } from '@/lib/ai-provider'
+import { mapCsvColumns } from '@/lib/csv-mapper'
 
 const CSV_SYSTEM_PROMPT = `You are an expert data mapper for a WhatsApp CRM called BroadcastHQ.
-Map CSV column headers to: phone (required), firstName, lastName, customFields (other fields).
+Map CSV column headers to contact fields: phone (required), firstName, lastName, fullName, email, country, city, notes, tags, optIn, and customFields (for anything else).
 Return ONLY valid JSON. Be precise.`
 
-async function suggestCsvMappingWithConfig(headers: string[], aiConfig: { provider: string; apiKey: string; model?: string | null }) {
+async function suggestWithAi(
+  headers: string[],
+  aiConfig: { provider: string; apiKey: string; model?: string | null },
+) {
   const result = await aiComplete(
     aiConfig as Parameters<typeof aiComplete>[0],
     [{
       role: 'user',
-      content: `CSV headers: ${JSON.stringify(headers)}\n\nReturn JSON:\n{"phone":"col_or_null","firstName":"col_or_null","lastName":"col_or_null","customFields":{"our_field":"csv_col"},"confidence":0.0,"explanation":"brief"}`,
+      content: `CSV headers: ${JSON.stringify(headers)}\n\nReturn JSON:\n{"phone":"col_or_null","firstName":"col_or_null","lastName":"col_or_null","fullName":"col_or_null","email":"col_or_null","country":"col_or_null","city":"col_or_null","notes":"col_or_null","tags":"col_or_null","optIn":"col_or_null","customFields":{"our_field":"csv_col"},"confidence":0.0,"explanation":"brief"}`,
     }],
     CSV_SYSTEM_PROMPT,
   )
@@ -50,9 +54,39 @@ export async function POST(request: NextRequest) {
 
     const headers = Object.keys(rows[0])
 
-    // Phase 1: return AI column mapping suggestions
+    // ── Phase 1: generate column mapping suggestion ───────────────────────────
     if (!mappingJson) {
-      // Resolve AI config: workspace key → platform fallback
+      const samples = rows.slice(0, 10)
+
+      // Rule-based mapper runs first — fast, free, no AI key needed
+      const ruleMapping = mapCsvColumns(headers, samples)
+
+      if (!ruleMapping.needsAiFallback) {
+        // High confidence: skip AI entirely
+        return NextResponse.json({
+          phase:    'suggest',
+          source:   'rule-based',
+          headers,
+          preview:  rows.slice(0, 3),
+          suggestion: {
+            phone:        ruleMapping.phone,
+            firstName:    ruleMapping.firstName,
+            lastName:     ruleMapping.lastName,
+            fullName:     ruleMapping.fullName,
+            email:        ruleMapping.email,
+            country:      ruleMapping.country,
+            city:         ruleMapping.city,
+            notes:        ruleMapping.notes,
+            tags:         ruleMapping.tags,
+            optIn:        ruleMapping.optIn,
+            customFields: ruleMapping.customFields,
+            confidence:   ruleMapping.confidence,
+            explanation:  ruleMapping.explanation,
+          },
+        })
+      }
+
+      // Low confidence: try AI fallback
       const [ws] = await db
         .select({ aiProvider: workspaces.aiProvider, aiApiKey: workspaces.aiApiKey, aiModel: workspaces.aiModel })
         .from(workspaces)
@@ -63,34 +97,85 @@ export async function POST(request: NextRequest) {
         ?? getPlatformFallbackConfig()
 
       if (!aiConfig) {
+        // Return partial rule-based result with warning
         return NextResponse.json({
-          error: 'No AI provider configured. Add your API key in Settings → AI Provider to enable smart column mapping.',
-          phase: 'no-ai',
+          phase:   'suggest',
+          source:  'rule-based-partial',
           headers,
           preview: rows.slice(0, 3),
-        }, { status: 422 })
+          warning: 'Low confidence mapping. Configure an AI provider in Settings → AI Provider for better results.',
+          suggestion: {
+            phone:        ruleMapping.phone,
+            firstName:    ruleMapping.firstName,
+            lastName:     ruleMapping.lastName,
+            fullName:     ruleMapping.fullName,
+            email:        ruleMapping.email,
+            country:      ruleMapping.country,
+            city:         ruleMapping.city,
+            notes:        ruleMapping.notes,
+            tags:         ruleMapping.tags,
+            optIn:        ruleMapping.optIn,
+            customFields: ruleMapping.customFields,
+            confidence:   ruleMapping.confidence,
+            explanation:  ruleMapping.explanation,
+          },
+        })
       }
 
-      const suggestion = await suggestCsvMappingWithConfig(headers, aiConfig)
-      return NextResponse.json({
-        phase:      'suggest',
-        headers,
-        suggestion,
-        preview:    rows.slice(0, 3),
-        provider:   aiConfig.provider,
-      })
+      try {
+        const aiSuggestion = await suggestWithAi(headers, aiConfig)
+        return NextResponse.json({
+          phase:      'suggest',
+          source:     'ai',
+          provider:   aiConfig.provider,
+          headers,
+          preview:    rows.slice(0, 3),
+          suggestion: aiSuggestion,
+        })
+      } catch {
+        // AI failed — fall back to rule-based result
+        return NextResponse.json({
+          phase:   'suggest',
+          source:  'rule-based-fallback',
+          headers,
+          preview: rows.slice(0, 3),
+          warning: 'AI mapping failed. Using smart auto-detection instead.',
+          suggestion: {
+            phone:        ruleMapping.phone,
+            firstName:    ruleMapping.firstName,
+            lastName:     ruleMapping.lastName,
+            fullName:     ruleMapping.fullName,
+            email:        ruleMapping.email,
+            country:      ruleMapping.country,
+            city:         ruleMapping.city,
+            notes:        ruleMapping.notes,
+            tags:         ruleMapping.tags,
+            optIn:        ruleMapping.optIn,
+            customFields: ruleMapping.customFields,
+            confidence:   ruleMapping.confidence,
+            explanation:  ruleMapping.explanation,
+          },
+        })
+      }
     }
 
-    // Phase 2: apply confirmed mapping and import
+    // ── Phase 2: apply confirmed mapping and import ───────────────────────────
     const mapping: {
       phone:        string | null
-      firstName:    string | null
-      lastName:     string | null
+      firstName?:   string | null
+      lastName?:    string | null
+      fullName?:    string | null
+      email?:       string | null
+      country?:     string | null
+      city?:        string | null
+      notes?:       string | null
+      tags?:        string | null
+      optIn?:       string | null
       customFields: Record<string, string>
     } = JSON.parse(mappingJson)
 
     if (!mapping.phone) {
-      return NextResponse.json({ error: 'phone column mapping is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Phone column mapping is required' }, { status: 400 })
     }
 
     // Create import job
@@ -112,7 +197,7 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < rows.length; i++) {
       const row      = rows[i]
-      const rawPhone = (row[mapping.phone] ?? '').trim()
+      const rawPhone = (row[mapping.phone!] ?? '').trim()
 
       if (!rawPhone) {
         errors.push(`Row ${i + 2}: missing phone`)
@@ -135,18 +220,49 @@ export async function POST(request: NextRequest) {
         continue
       }
 
+      // Resolve name fields
+      let firstName: string | null = mapping.firstName
+        ? (row[mapping.firstName] ?? '').trim() || null
+        : null
+
+      let lastName: string | null = mapping.lastName
+        ? (row[mapping.lastName] ?? '').trim() || null
+        : null
+
+      if (!firstName && !lastName && mapping.fullName) {
+        const parts = (row[mapping.fullName] ?? '').trim().split(/\s+/)
+        firstName = parts[0] || null
+        lastName  = parts.slice(1).join(' ') || null
+      }
+
+      // Opt-in
+      const optInRaw = mapping.optIn ? (row[mapping.optIn] ?? '').toLowerCase().trim() : ''
+      const optIn    = optInRaw
+        ? !['false', '0', 'no', 'n', 'off', 'inactive', 'unsubscribed'].includes(optInRaw)
+        : true
+
+      // Tags — split comma-separated values
+      const tagsRaw = mapping.tags ? (row[mapping.tags] ?? '').trim() : ''
+      const tags    = tagsRaw ? tagsRaw.split(/[,;|]/).map(t => t.trim()).filter(Boolean) : []
+
+      // Custom fields
       const customFields: Record<string, string> = {}
       for (const [ourField, csvHeader] of Object.entries(mapping.customFields ?? {})) {
-        if (row[csvHeader] !== undefined) customFields[ourField] = row[csvHeader]
+        const val = (row[csvHeader] ?? '').trim()
+        if (val) customFields[ourField] = val
       }
 
       contactRows.push({
-        workspaceId:  user.workspaceId,
-        phone:        e164,
-        firstName:    mapping.firstName ? (row[mapping.firstName] ?? null) : null,
-        lastName:     mapping.lastName  ? (row[mapping.lastName]  ?? null) : null,
-        status:       'active',
-        tags:         [],
+        workspaceId: user.workspaceId,
+        phone:       e164,
+        firstName,
+        lastName,
+        email:       mapping.email   ? ((row[mapping.email]   ?? '').trim() || null) : null,
+        country:     mapping.country ? ((row[mapping.country] ?? '').trim() || null) : null,
+        city:        mapping.city    ? ((row[mapping.city]    ?? '').trim() || null) : null,
+        notes:       mapping.notes   ? ((row[mapping.notes]   ?? '').trim() || null) : null,
+        tags,
+        status:      optIn ? 'active' : 'opted_out',
         customFields,
       })
     }
@@ -164,6 +280,10 @@ export async function POST(request: NextRequest) {
           set: {
             firstName:    contacts.firstName,
             lastName:     contacts.lastName,
+            email:        contacts.email,
+            country:      contacts.country,
+            city:         contacts.city,
+            notes:        contacts.notes,
             customFields: contacts.customFields,
           },
         })
@@ -197,4 +317,3 @@ export async function POST(request: NextRequest) {
     return serverErrorJson()
   }
 }
-

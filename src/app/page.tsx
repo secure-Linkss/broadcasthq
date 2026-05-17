@@ -38,7 +38,7 @@ const stagger = (delay = 0.1): Variants => ({
 });
 
 /* ─── Animated counter ─── */
-function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
+function Counter({ to, suffix = "", decimals = 0, duration = 1800 }: { to: number; suffix?: string; decimals?: number; duration?: number }) {
   const [val, setVal] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
   const [started, setStarted] = useState(false);
@@ -48,7 +48,7 @@ function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
     if (!el) return;
     const obs = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setStarted(true); },
-      { threshold: 0.5 }
+      { threshold: 0.3 }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -57,18 +57,210 @@ function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
   useEffect(() => {
     if (!started) return;
     let start = 0;
-    const duration = 1800;
     const step = (timestamp: number) => {
       if (!start) start = timestamp;
       const progress = Math.min((timestamp - start) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setVal(Math.floor(eased * to));
+      setVal(Math.round(eased * to * Math.pow(10, decimals)) / Math.pow(10, decimals));
       if (progress < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
-  }, [started, to]);
+  }, [started, to, duration, decimals]);
 
-  return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
+  return <span ref={ref}>{decimals > 0 ? val.toFixed(decimals) : val.toLocaleString()}{suffix}</span>;
+}
+
+/* ─── Promo stats (fallback until real data loads) ─── */
+const PROMO_STATS = {
+  teams: 500, campaigns: 12400, messages: 4200000, readRate: 87.3, contacts: 890000,
+};
+const LIVE_THRESHOLD = { teams: 2, campaigns: 3 };
+
+/* ─── Dashboard preview ─── */
+function DashboardPreview() {
+  const [stats, setStats] = useState(PROMO_STATS);
+  const [isLive, setIsLive] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch('/api/public/stats')
+      .then(r => r.json())
+      .then(d => {
+        const s = d?.stats;
+        if (!s) return;
+        if (s.teams >= LIVE_THRESHOLD.teams && s.campaigns >= LIVE_THRESHOLD.campaigns) {
+          setStats({ teams: s.teams, campaigns: s.campaigns, messages: s.messages, readRate: s.readRate || 87.3, contacts: s.contacts });
+          setIsLive(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const statCards = [
+    { label: "Messages Sent",   value: stats.messages,  suffix: "",  fmt: (v: number) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.25)" },
+    { label: "Delivered",       value: 98.7,             suffix: "%", fmt: (v: number) => v.toFixed(1),                                                                                        color: "#34d399", bg: "rgba(52,211,153,0.12)",  border: "rgba(52,211,153,0.25)"  },
+    { label: "Avg Read Rate",   value: stats.readRate,   suffix: "%", fmt: (v: number) => v.toFixed(1),                                                                                        color: "#60a5fa", bg: "rgba(96,165,250,0.12)",  border: "rgba(96,165,250,0.25)"  },
+    { label: "Active Contacts", value: stats.contacts,   suffix: "",  fmt: (v: number) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`, color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  border: "rgba(245,158,11,0.25)"  },
+  ];
+
+  const feed = [
+    { flag: "🇬🇧", event: "Delivered",  campaign: "Summer Flash Sale",   ms: "12ms", color: "#34d399" },
+    { flag: "🇩🇪", event: "Read",        campaign: "Re-engagement 3.0",   ms: "3ms",  color: "#60a5fa" },
+    { flag: "🇺🇸", event: "Replied",     campaign: "Summer Flash Sale",   ms: "8ms",  color: "#a78bfa" },
+    { flag: "🇳🇬", event: "Delivered",   campaign: "New Collection Drop", ms: "21ms", color: "#34d399" },
+  ];
+
+  const bars = [48, 63, 41, 78, 59, 85, 67, 91, 55, 74, 62, 100];
+
+  return (
+    <div ref={sectionRef} className="rounded-2xl border border-white/[0.1] shadow-[0_32px_80px_rgba(0,0,0,0.6)] overflow-hidden bg-[#0c1220]">
+      {/* Top accent line */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-violet-600 via-fuchsia-500 to-indigo-500" />
+
+      {/* Browser chrome */}
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/[0.06] bg-[#0f1723]">
+        <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]/70" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]/70" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]/70" />
+        <div className="ml-3 flex-1 max-w-xs bg-white/[0.04] border border-white/[0.07] rounded-md px-3 py-1 text-[11px] text-white/40 font-mono flex items-center gap-2">
+          <span className="text-emerald-400 text-[10px]">🔒</span>
+          app.broadcasthq.com/dashboard
+        </div>
+        {isLive && (
+          <span className="ml-auto text-[10px] text-emerald-400 font-bold tracking-wider flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+            LIVE DATA
+          </span>
+        )}
+      </div>
+
+      {/* Dashboard body */}
+      <div className="flex" style={{ height: 480 }}>
+        {/* Sidebar */}
+        <div className="w-48 border-r border-white/[0.05] bg-[#0a101c] p-4 hidden md:flex flex-col gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-2 px-2 mb-5">
+            <div className="h-6 w-6 rounded-md bg-violet-600 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(124,58,237,0.5)]">
+              <span className="text-white text-[9px] font-black">BQ</span>
+            </div>
+            <span className="text-[12px] font-semibold text-white tracking-tight">BroadcastHQ</span>
+          </div>
+
+          {[
+            { label: "Dashboard",  active: false },
+            { label: "Campaigns",  active: true  },
+            { label: "Contacts",   active: false },
+            { label: "Inbox",      active: false },
+            { label: "Analytics",  active: false },
+            { label: "Templates",  active: false },
+            { label: "Settings",   active: false },
+          ].map((item, i) => (
+            <div key={i} className={cn(
+              "h-8 rounded-lg flex items-center gap-2.5 px-3 text-[11px] font-medium transition-colors",
+              item.active
+                ? "bg-violet-600/25 text-violet-300 shadow-[inset_0_0_0_1px_rgba(167,139,250,0.2)]"
+                : "text-white/35 hover:text-white/60 hover:bg-white/[0.04]"
+            )}>
+              <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", item.active ? "bg-violet-400" : "bg-white/15")} />
+              {item.label}
+            </div>
+          ))}
+
+          <div className="mt-auto border-t border-white/[0.05] pt-3">
+            <div className="flex items-center gap-2 px-2">
+              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] font-bold text-white shrink-0">JD</div>
+              <div>
+                <p className="text-[11px] text-white font-medium leading-none mb-0.5">John Doe</p>
+                <p className="text-[9px] text-violet-400/80 font-medium leading-none">Pro Plan</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Topbar */}
+          <div className="border-b border-white/[0.05] px-5 py-3 flex items-center justify-between bg-[#0c1220] shrink-0">
+            <div>
+              <p className="text-[13px] font-semibold text-white leading-none mb-1">Campaigns</p>
+              <p className="text-[10px] text-white/30">May 2026 · {stats.campaigns.toLocaleString()} total</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-20 border border-white/[0.07] rounded-lg bg-white/[0.03] flex items-center justify-center">
+                <span className="text-[10px] text-white/35">Filter ▾</span>
+              </div>
+              <div className="h-7 px-3 bg-violet-600 rounded-lg flex items-center gap-1 shadow-[0_0_12px_rgba(124,58,237,0.4)]">
+                <span className="text-white text-[10px] font-semibold">+ New Campaign</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 p-4 space-y-3.5 overflow-hidden">
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-2.5">
+              {statCards.map((s, i) => (
+                <div key={i} className="rounded-xl p-3 border" style={{ background: s.bg, borderColor: s.border }}>
+                  <p className="text-[9px] font-medium uppercase tracking-widest mb-2" style={{ color: `${s.color}99` }}>{s.label}</p>
+                  <p className="text-[20px] font-bold text-white leading-none mb-1.5">{s.fmt(s.value)}</p>
+                  <p className="text-[9px] font-semibold" style={{ color: s.color }}>↑ trending up</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Chart */}
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 pt-3 pb-2 shrink-0" style={{ height: 108 }}>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] text-white/45 font-medium">Message Delivery — Last 12 Days</span>
+                <div className="flex gap-3">
+                  <span className="flex items-center gap-1 text-[9px] text-violet-400"><span className="h-1.5 w-1.5 rounded-full bg-violet-500 inline-block" />Sent</span>
+                  <span className="flex items-center gap-1 text-[9px] text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />Delivered</span>
+                </div>
+              </div>
+              <div className="flex items-end gap-1" style={{ height: 56 }}>
+                {bars.map((h, i) => (
+                  <div key={i} className="flex-1" style={{ height: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                    <div style={{
+                      width: '100%',
+                      height: `${h}%`,
+                      background: i === bars.length - 1
+                        ? 'linear-gradient(to top, #7c3aed, #c4b5fd)'
+                        : i >= bars.length - 3
+                        ? 'rgba(124,58,237,0.5)'
+                        : 'rgba(124,58,237,0.2)',
+                      borderRadius: '2px 2px 0 0',
+                      transition: 'height 0.3s ease',
+                    }} />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between mt-1.5">
+                {['6 May','8 May','10 May','12 May','14 May','17 May'].map((d, i) => (
+                  <span key={i} className="text-[8px] text-white/20">{d}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Live feed */}
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className="text-[9px] font-semibold text-white/40 uppercase tracking-widest">Live Event Stream</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-auto" />
+              </div>
+              <div className="space-y-1.5">
+                {feed.map((e, i) => (
+                  <div key={i} className="flex items-center gap-3 text-[10px] py-1 border-b border-white/[0.04] last:border-0">
+                    <span className="text-sm leading-none">{e.flag}</span>
+                    <span className="text-white/40 font-mono truncate flex-1">{e.campaign}</span>
+                    <span className="font-semibold" style={{ color: e.color }}>{e.event}</span>
+                    <span className="text-white/25 font-mono">{e.ms}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─── Bento feature card ─── */
@@ -83,8 +275,8 @@ const features = [
   },
   {
     icon: Brain,
-    title: "AI Contact Import",
-    desc: "Drop any messy spreadsheet. Our Claude-powered AI maps columns, normalizes phone numbers, and cleans duplicates automatically.",
+    title: "Smart Contact Import",
+    desc: "Drop any messy spreadsheet. Our engine auto-detects columns, normalizes phone numbers, and cleans duplicates — AI steps in only for unusual formats.",
     color: "from-indigo-500/20 to-blue-600/5",
     iconColor: "text-indigo-400",
     span: "col-span-1",
@@ -123,7 +315,7 @@ const features = [
   },
 ];
 
-const stats = [
+const heroStats = [
   { value: 4200000, suffix: "+", label: "Messages delivered daily" },
   { value: 98, suffix: "%",   label: "Delivery success rate" },
   { value: 500,  suffix: "+", label: "Teams worldwide" },
@@ -303,160 +495,11 @@ export default function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.1, delay: 0.5, ease: "easeOut" }}
           style={{ y: mockupY }}
-          className="relative z-10 w-full max-w-6xl mx-auto mt-20"
+          className="relative z-10 w-full max-w-5xl mx-auto mt-20"
         >
-          {/* Floating notification cards — left */}
-          <motion.div
-            initial={{ opacity: 0, x: -60 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, delay: 1.1, ease: "easeOut" }}
-            className="float-card-1 absolute -left-6 top-12 z-20 hidden lg:block"
-          >
-            <div className="gradient-border rounded-2xl bg-[#111827]/90 backdrop-blur-xl p-4 w-[200px] shadow-2xl">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-                  <span className="text-green-400 text-xs font-bold">✓</span>
-                </div>
-                <div>
-                  <p className="text-[11px] text-white font-semibold">Delivered</p>
-                  <p className="text-[10px] text-white/40">2 sec ago</p>
-                </div>
-              </div>
-              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                <div className="h-full w-[94%] bg-gradient-to-r from-green-500 to-emerald-400 rounded-full" />
-              </div>
-              <p className="text-[10px] text-white/40 mt-1.5">4,237 / 4,500 delivered</p>
-            </div>
-          </motion.div>
-
-          {/* Floating stat card — right */}
-          <motion.div
-            initial={{ opacity: 0, x: 60 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, delay: 1.2, ease: "easeOut" }}
-            className="float-card-2 absolute -right-6 top-8 z-20 hidden lg:block"
-          >
-            <div className="gradient-border rounded-2xl bg-[#111827]/90 backdrop-blur-xl p-4 w-[190px] shadow-2xl">
-              <p className="text-[11px] text-white/40 mb-1">Read Rate</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold text-white">87</span>
-                <span className="text-lg font-bold text-violet-400">%</span>
-              </div>
-              <div className="flex items-center gap-1 mt-2">
-                <span className="text-[10px] text-emerald-400">↑ 12.3%</span>
-                <span className="text-[10px] text-white/30">vs last campaign</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Floating message card — bottom right */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, delay: 1.4, ease: "easeOut" }}
-            className="float-card-3 absolute right-4 -bottom-8 z-20 hidden md:block"
-          >
-            <div className="gradient-border rounded-2xl bg-[#111827]/90 backdrop-blur-xl p-3.5 w-[220px] shadow-2xl">
-              <div className="flex items-center gap-2 mb-2.5">
-                <div className="h-6 w-6 rounded-full bg-violet-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">AI</div>
-                <p className="text-[11px] text-white font-semibold">Campaign sent</p>
-              </div>
-              <div className="bg-white/[0.04] rounded-xl p-2.5 text-[10px] text-white/60 leading-relaxed">
-                Hi <span className="text-violet-300">{"{{name}}"}</span>! 🎉 Your exclusive offer expires in 24h...
-              </div>
-              <p className="text-[10px] text-white/30 mt-2 text-right">Just now · 5,000 recipients</p>
-            </div>
-          </motion.div>
-          <div className="dashboard-glow rounded-2xl border border-white/[0.08] bg-[#111827]/60 backdrop-blur-2xl p-1.5">
-            {/* Fade out bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#0b1020] to-transparent z-10 rounded-b-2xl pointer-events-none" />
-
-            <div className="rounded-xl overflow-hidden border border-white/[0.05] bg-[#0d1117] flex" style={{ height: 560 }}>
-              {/* Mock sidebar */}
-              <div className="w-56 border-r border-white/5 bg-[#111827]/80 p-4 hidden md:flex flex-col gap-6 flex-shrink-0">
-                <div className="h-7 w-28 bg-white/10 rounded-lg" />
-                <div className="space-y-2">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "h-9 rounded-lg flex items-center gap-2 px-3",
-                        i === 2 ? "bg-violet-500/20 w-full" : "bg-white/[0.04] w-11/12"
-                      )}
-                    >
-                      <div className={cn("h-3 w-3 rounded-sm flex-shrink-0", i === 2 ? "bg-violet-400" : "bg-white/15")} />
-                      <div className={cn("h-2 rounded-full", i === 2 ? "bg-violet-400/60 w-20" : "bg-white/10 w-16")} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Mock main */}
-              <div className="flex-1 p-7 space-y-5 opacity-90">
-                {/* Top bar */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1.5">
-                    <div className="h-5 w-44 bg-white/15 rounded-md" />
-                    <div className="h-3 w-28 bg-white/6 rounded-md" />
-                  </div>
-                  <div className="h-9 w-36 bg-violet-600/80 rounded-lg shimmer" />
-                </div>
-
-                {/* Stat cards */}
-                <div className="grid grid-cols-4 gap-4">
-                  {[
-                    { w: "w-20", val: "4.2M" },
-                    { w: "w-16", val: "98.7%" },
-                    { w: "w-24", val: "2,341" },
-                    { w: "w-14", val: "$12.4k" },
-                  ].map((c, i) => (
-                    <div key={i} className="rounded-xl border border-white/5 bg-white/[0.03] p-4 space-y-3">
-                      <div className={cn("h-2.5 rounded bg-white/10", c.w)} />
-                      <div className="h-7 w-20 bg-white/20 rounded-md" />
-                      <div className="h-2 w-12 bg-emerald-500/40 rounded" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Chart area */}
-                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5 h-36 flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
-                    <div className="h-3 w-32 bg-white/10 rounded" />
-                    <div className="h-3 w-20 bg-white/6 rounded" />
-                  </div>
-                  {/* Fake bar chart */}
-                  <div className="flex items-end gap-1.5 flex-1">
-                    {[40, 65, 45, 80, 55, 90, 70, 85, 60, 75, 50, 95].map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-sm"
-                        style={{
-                          height: `${h}%`,
-                          background: i === 11
-                            ? "linear-gradient(to top, #7c3aed, #a78bfa)"
-                            : "rgba(255,255,255,0.06)",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Table rows */}
-                <div className="space-y-2">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="flex items-center gap-4 rounded-lg border border-white/5 bg-white/[0.02] p-3">
-                      <div className="h-8 w-8 rounded-full bg-white/8 flex-shrink-0" />
-                      <div className="flex-1 space-y-1">
-                        <div className="h-2.5 w-36 bg-white/10 rounded" />
-                        <div className="h-2 w-24 bg-white/5 rounded" />
-                      </div>
-                      <div className="h-6 w-16 rounded-full bg-emerald-500/20 border border-emerald-500/20" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Fade out bottom so it blends into next section */}
+          <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#0b1020] to-transparent z-10 rounded-b-2xl pointer-events-none" />
+          <DashboardPreview />
         </motion.div>
       </section>
 
@@ -478,7 +521,7 @@ export default function LandingPage() {
       <section className="py-24 px-6 relative">
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4">
-            {stats.map((s, i) => (
+            {heroStats.map((s, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}

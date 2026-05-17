@@ -42,7 +42,7 @@ const FEATURES: Record<Category, { icon: React.ElementType; title: string; desc:
     { icon: Key,          title: "API Access",            desc: "Full REST API with API key authentication. Trigger campaigns, manage contacts, and query analytics from your own systems.", badge: "API" },
   ],
   ai: [
-    { icon: Brain,       title: "AI Contact Import",     desc: "Upload any CSV and our Claude AI automatically maps your columns to the right fields. No manual mapping required.", badge: "AI" },
+    { icon: Brain,       title: "Smart Contact Import",  desc: "Upload any CSV — our rule-based engine instantly auto-detects columns. AI steps in only for unusual formats.", badge: "Smart" },
     { icon: FileSearch,  title: "Smart File Parser",     desc: "Drop in PDFs, Word docs, or Excel files. Our AI extracts names, phone numbers, emails, and custom fields automatically.", badge: "AI" },
     { icon: PhoneCall,  title: "WhatsApp Validator",    desc: "Bulk validate phone numbers before sending. Detect invalid formats, duplicates, and numbers not registered on WhatsApp.", badge: "AI" },
   ],

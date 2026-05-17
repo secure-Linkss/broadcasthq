@@ -305,6 +305,68 @@ export default function LandingPage() {
           style={{ y: mockupY }}
           className="relative z-10 w-full max-w-6xl mx-auto mt-20"
         >
+          {/* Floating notification cards — left */}
+          <motion.div
+            initial={{ opacity: 0, x: -60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, delay: 1.1, ease: "easeOut" }}
+            className="float-card-1 absolute -left-6 top-12 z-20 hidden lg:block"
+          >
+            <div className="gradient-border rounded-2xl bg-[#111827]/90 backdrop-blur-xl p-4 w-[200px] shadow-2xl">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                  <span className="text-green-400 text-xs font-bold">✓</span>
+                </div>
+                <div>
+                  <p className="text-[11px] text-white font-semibold">Delivered</p>
+                  <p className="text-[10px] text-white/40">2 sec ago</p>
+                </div>
+              </div>
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full w-[94%] bg-gradient-to-r from-green-500 to-emerald-400 rounded-full" />
+              </div>
+              <p className="text-[10px] text-white/40 mt-1.5">4,237 / 4,500 delivered</p>
+            </div>
+          </motion.div>
+
+          {/* Floating stat card — right */}
+          <motion.div
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, delay: 1.2, ease: "easeOut" }}
+            className="float-card-2 absolute -right-6 top-8 z-20 hidden lg:block"
+          >
+            <div className="gradient-border rounded-2xl bg-[#111827]/90 backdrop-blur-xl p-4 w-[190px] shadow-2xl">
+              <p className="text-[11px] text-white/40 mb-1">Read Rate</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-white">87</span>
+                <span className="text-lg font-bold text-violet-400">%</span>
+              </div>
+              <div className="flex items-center gap-1 mt-2">
+                <span className="text-[10px] text-emerald-400">↑ 12.3%</span>
+                <span className="text-[10px] text-white/30">vs last campaign</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Floating message card — bottom right */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 1.4, ease: "easeOut" }}
+            className="float-card-3 absolute right-4 -bottom-8 z-20 hidden md:block"
+          >
+            <div className="gradient-border rounded-2xl bg-[#111827]/90 backdrop-blur-xl p-3.5 w-[220px] shadow-2xl">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="h-6 w-6 rounded-full bg-violet-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">AI</div>
+                <p className="text-[11px] text-white font-semibold">Campaign sent</p>
+              </div>
+              <div className="bg-white/[0.04] rounded-xl p-2.5 text-[10px] text-white/60 leading-relaxed">
+                Hi <span className="text-violet-300">{"{{name}}"}</span>! 🎉 Your exclusive offer expires in 24h...
+              </div>
+              <p className="text-[10px] text-white/30 mt-2 text-right">Just now · 5,000 recipients</p>
+            </div>
+          </motion.div>
           <div className="dashboard-glow rounded-2xl border border-white/[0.08] bg-[#111827]/60 backdrop-blur-2xl p-1.5">
             {/* Fade out bottom */}
             <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#0b1020] to-transparent z-10 rounded-b-2xl pointer-events-none" />

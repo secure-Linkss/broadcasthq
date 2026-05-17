@@ -16,8 +16,9 @@ import {
 import {
   Smartphone, ShieldCheck, Link2, Key, Bell, Building, Eye, EyeOff,
   Copy, CheckCheck, AlertTriangle, Loader2, Plus, Trash2, RotateCcw,
-  Code2, Clock, CheckCircle2, Brain, ExternalLink, FlaskConical,
+  Code2, Clock, CheckCircle2, Brain, ExternalLink, FlaskConical, User, Camera,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -26,12 +27,13 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 const tabs = [
-  { id: "workspace",    label: "Workspace",      icon: Building   },
-  { id: "whatsapp",     label: "WhatsApp",        icon: Smartphone },
-  { id: "ai-provider",  label: "AI Provider",     icon: Brain      },
-  { id: "api-keys",     label: "API Keys",        icon: Code2      },
-  { id: "notifications",label: "Notifications",   icon: Bell       },
-  { id: "security",     label: "Security",        icon: Key        },
+  { id: "profile",      label: "Profile",         icon: User       },
+  { id: "workspace",    label: "Workspace",        icon: Building   },
+  { id: "whatsapp",     label: "WhatsApp",         icon: Smartphone },
+  { id: "ai-provider",  label: "AI Provider",      icon: Brain      },
+  { id: "api-keys",     label: "API Keys",         icon: Code2      },
+  { id: "notifications",label: "Notifications",    icon: Bell       },
+  { id: "security",     label: "Security",         icon: Key        },
 ];
 
 interface WaConnection {
@@ -100,6 +102,14 @@ export default function SettingsPage() {
   const [aiTestResult, setAiTestResult]   = useState<string | null>(null);
   const [aiProviderOpts, setAiProviderOpts] = useState<{value:string;label:string;modelPlaceholder:string;keyPlaceholder:string;docsUrl:string}[]>([]);
 
+  // Profile
+  const [profileName, setProfileName]   = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   // Security
   const [pwForm, setPwForm]           = useState({ current: "", next: "", confirm: "" });
   const [pwSaving, setPwSaving]       = useState(false);
@@ -121,6 +131,17 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/profile")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.user) {
+          setProfileName(d.user.name ?? "");
+          setProfileUsername(d.user.username ?? "");
+          setProfileAvatarUrl(d.user.avatarUrl ?? null);
+        }
+      })
+      .finally(() => setProfileLoading(false));
+
     fetch("/api/settings/workspace")
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) { setWorkspace(d); setWsName(d.name); } })
@@ -156,6 +177,55 @@ export default function SettingsPage() {
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
     });
+  };
+
+  const saveProfile = async () => {
+    setProfileSaving(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profileName.trim() || undefined,
+          username: profileUsername.trim().toLowerCase() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) { toast.success("Profile updated."); }
+      else         { toast.error(data.error ?? "Failed to save."); }
+    } finally { setProfileSaving(false); }
+  };
+
+  const uploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2_097_152) { toast.error("Image must be under 2MB"); return; }
+    setAvatarUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        const res = await fetch("/api/profile/avatar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dataUrl }),
+        });
+        const data = await res.json();
+        if (res.ok) { setProfileAvatarUrl(data.avatarUrl); toast.success("Avatar updated."); }
+        else         { toast.error(data.error ?? "Failed to upload."); }
+        setAvatarUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch { setAvatarUploading(false); toast.error("Upload failed."); }
+  };
+
+  const removeAvatar = async () => {
+    setAvatarUploading(true);
+    try {
+      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
+      if (res.ok) { setProfileAvatarUrl(null); toast.success("Avatar removed."); }
+      else         { toast.error("Failed to remove avatar."); }
+    } finally { setAvatarUploading(false); }
   };
 
   const saveWorkspaceName = async () => {
@@ -359,6 +429,96 @@ export default function SettingsPage() {
         </aside>
 
         <div className="flex-1 space-y-6">
+
+          {/* ── Profile ── */}
+          {activeTab === "profile" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Profile</CardTitle>
+                <CardDescription>Manage your personal account information and avatar.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {profileLoading ? (
+                  <Skeleton className="h-24 w-full" />
+                ) : (
+                  <>
+                    {/* Avatar */}
+                    <div className="flex items-center gap-6">
+                      <div className="relative">
+                        <Avatar className="h-20 w-20 border-2 border-border">
+                          {profileAvatarUrl && <AvatarImage src={profileAvatarUrl} alt="Avatar" />}
+                          <AvatarFallback className="text-xl font-bold">
+                            {profileName ? profileName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0,2) : "??"}
+                          </AvatarFallback>
+                        </Avatar>
+                        {avatarUploading && (
+                          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+                            <Loader2 className="h-5 w-5 animate-spin text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Profile Photo</p>
+                        <p className="text-xs text-muted-foreground">JPEG, PNG, WebP or GIF. Max 2MB.</p>
+                        <div className="flex gap-2">
+                          <label className="cursor-pointer">
+                            <input type="file" accept="image/*" className="hidden" onChange={uploadAvatar} disabled={avatarUploading} />
+                            <Button type="button" variant="outline" size="sm" className="gap-1.5 pointer-events-none" asChild>
+                              <span><Camera className="h-3.5 w-3.5" /> Upload Photo</span>
+                            </Button>
+                          </label>
+                          {profileAvatarUrl && (
+                            <Button type="button" variant="ghost" size="sm" onClick={removeAvatar} disabled={avatarUploading}
+                              className="text-destructive hover:text-destructive">
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Name */}
+                    <div className="grid gap-2 max-w-md">
+                      <Label htmlFor="profileName">Full Name</Label>
+                      <Input id="profileName" value={profileName}
+                        onChange={e => setProfileName(e.target.value)}
+                        placeholder="John Doe" className="bg-background" />
+                    </div>
+
+                    {/* Username */}
+                    <div className="grid gap-2 max-w-md">
+                      <Label htmlFor="profileUsername">Username</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">@</span>
+                        <Input id="profileUsername" value={profileUsername}
+                          onChange={e => setProfileUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                          placeholder="yourhandle" className="bg-background pl-7"
+                          minLength={3} maxLength={30} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">3-30 chars. Letters, numbers, underscores only.</p>
+                    </div>
+
+                    {/* Email (read-only) */}
+                    <div className="grid gap-2 max-w-md">
+                      <Label>Email</Label>
+                      <Input value={session?.user?.email ?? ""} disabled className="bg-muted" />
+                      <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+              {!profileLoading && (
+                <CardFooter>
+                  <Button onClick={saveProfile} disabled={profileSaving} className="gap-2">
+                    {profileSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Save Profile
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+          )}
 
           {/* ── Workspace ── */}
           {activeTab === "workspace" && (

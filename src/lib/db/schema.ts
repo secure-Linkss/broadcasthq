@@ -31,9 +31,10 @@ export const users = pgTable('users', {
   id:            uuid('id').defaultRandom().primaryKey(),
   workspaceId:   uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
   email:         text('email').notNull().unique(),
-  username:      text('username').unique(),               // optional username for login (lowercase)
+  username:      text('username').unique(),
   passwordHash:  text('password_hash'),
   name:          text('name'),
+  avatarUrl:     text('avatar_url'),
   role:          text('role').notNull().default('owner'),
   status:        text('status').notNull().default('active'),
   lastActive:    timestamp('last_active'),
@@ -231,6 +232,65 @@ export const auditLogs = pgTable('audit_logs', {
   createdAtIdx: index('audit_logs_created_at_idx').on(t.createdAt),
 }))
 
+// ─── SUPPORT TICKETS ─────────────────────────────────────────────────────────
+export const supportTickets = pgTable('support_tickets', {
+  id:                 uuid('id').defaultRandom().primaryKey(),
+  workspaceId:        uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  userId:             uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  ticketNumber:       text('ticket_number').notNull().unique(),
+  subject:            text('subject').notNull(),
+  description:        text('description').notNull(),
+  status:             text('status').notNull().default('open'),       // open|in_progress|waiting_response|resolved|closed
+  priority:           text('priority').notNull().default('medium'),   // low|medium|high|urgent
+  category:           text('category').notNull().default('general'),  // technical|billing|general|bug_report|feature_request
+  assignedTo:         uuid('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+  resolution:         text('resolution'),
+  satisfactionRating: integer('satisfaction_rating'),
+  firstResponseAt:    timestamp('first_response_at'),
+  lastActivityAt:     timestamp('last_activity_at').defaultNow(),
+  resolvedAt:         timestamp('resolved_at'),
+  closedAt:           timestamp('closed_at'),
+  createdAt:          timestamp('created_at').defaultNow().notNull(),
+  updatedAt:          timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  workspaceIdx:  index('tickets_workspace_idx').on(t.workspaceId),
+  userIdx:       index('tickets_user_idx').on(t.userId),
+  statusIdx:     index('tickets_status_idx').on(t.status),
+  ticketNumIdx:  uniqueIndex('tickets_number_idx').on(t.ticketNumber),
+}))
+
+// ─── TICKET MESSAGES ─────────────────────────────────────────────────────────
+export const ticketMessages = pgTable('ticket_messages', {
+  id:         uuid('id').defaultRandom().primaryKey(),
+  ticketId:   uuid('ticket_id').notNull().references(() => supportTickets.id, { onDelete: 'cascade' }),
+  authorId:   uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+  authorName: text('author_name').notNull(),
+  authorRole: text('author_role').notNull().default('user'),  // user|admin|super_admin
+  content:    text('content').notNull(),
+  isInternal: boolean('is_internal').notNull().default(false),
+  isSolution: boolean('is_solution').notNull().default(false),
+  createdAt:  timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  ticketIdx: index('ticket_messages_ticket_idx').on(t.ticketId),
+}))
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+export const notifications = pgTable('notifications', {
+  id:         uuid('id').defaultRandom().primaryKey(),
+  userId:     uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  type:       text('type').notNull(), // ticket_created|ticket_replied|ticket_resolved|campaign_complete|system
+  title:      text('title').notNull(),
+  body:       text('body').notNull(),
+  href:       text('href'),           // optional link
+  isRead:     boolean('is_read').notNull().default(false),
+  metadata:   jsonb('metadata').$type<Record<string, unknown>>().default({}),
+  createdAt:  timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userIdx:    index('notifications_user_idx').on(t.userId),
+  unreadIdx:  index('notifications_unread_idx').on(t.userId, t.isRead),
+}))
+
 // ─── RELATIONS ────────────────────────────────────────────────────────────────
 export const workspacesRelations = relations(workspaces, ({ many, one }) => ({
   users:               many(users),
@@ -241,10 +301,29 @@ export const workspacesRelations = relations(workspaces, ({ many, one }) => ({
   apiKeys:             many(apiKeys),
   importJobs:          many(importJobs),
   whatsappConnections: many(whatsappConnections),
+  supportTickets:      many(supportTickets),
 }))
 
-export const usersRelations = relations(users, ({ one }) => ({
-  workspace: one(workspaces, { fields: [users.workspaceId], references: [workspaces.id] }),
+export const usersRelations = relations(users, ({ one, many }) => ({
+  workspace:     one(workspaces, { fields: [users.workspaceId], references: [workspaces.id] }),
+  tickets:       many(supportTickets),
+  notifications: many(notifications),
+}))
+
+export const supportTicketsRelations = relations(supportTickets, ({ one, many }) => ({
+  workspace: one(workspaces, { fields: [supportTickets.workspaceId], references: [workspaces.id] }),
+  user:      one(users, { fields: [supportTickets.userId], references: [users.id] }),
+  messages:  many(ticketMessages),
+}))
+
+export const ticketMessagesRelations = relations(ticketMessages, ({ one }) => ({
+  ticket: one(supportTickets, { fields: [ticketMessages.ticketId], references: [supportTickets.id] }),
+  author: one(users, { fields: [ticketMessages.authorId], references: [users.id] }),
+}))
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user:      one(users, { fields: [notifications.userId], references: [users.id] }),
+  workspace: one(workspaces, { fields: [notifications.workspaceId], references: [workspaces.id] }),
 }))
 
 export const campaignsRelations = relations(campaigns, ({ one, many }) => ({

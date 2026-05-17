@@ -21,7 +21,8 @@ import {
   Ban,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
 
 const mainNavItems = [
   { name: "Dashboard",  href: "/dashboard",  icon: LayoutDashboard },
@@ -69,6 +70,14 @@ export function Sidebar() {
   const initials = session?.user?.name
     ? session.user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "??";
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/profile")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.user?.avatarUrl) setAvatarUrl(d.user.avatarUrl); })
+      .catch(() => {});
+  }, [session?.user?.id]);
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">
@@ -132,6 +141,7 @@ export function Sidebar() {
       <div className="border-t border-border p-4 space-y-1">
         <div className="flex items-center gap-3 rounded-md px-2 py-2">
           <Avatar className="h-8 w-8 shrink-0 border border-border">
+            {avatarUrl && <AvatarImage src={avatarUrl} alt={session?.user?.name ?? "avatar"} />}
             <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col overflow-hidden flex-1 min-w-0">

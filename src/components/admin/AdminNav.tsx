@@ -20,6 +20,7 @@ import {
   Shield,
   Activity,
   Brain,
+  Ticket,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -35,6 +36,7 @@ const navItems = [
   { name: "Opt-outs",      href: "/admin/optouts",     icon: Ban },
   { name: "Bot Blocks",    href: "/admin/bot-blocks",  icon: Bot },
   { name: "Webhooks",      href: "/admin/webhooks",    icon: Webhook },
+  { name: "Tickets",       href: "/admin/tickets",     icon: Ticket },
   { name: "Settings",      href: "/admin/settings",    icon: Settings },
 ];
 

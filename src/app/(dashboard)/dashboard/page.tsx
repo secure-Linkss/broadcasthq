@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
 import { PerformanceChart } from "@/components/dashboard/performance-chart";
 import { RecentCampaigns } from "@/components/dashboard/recent-campaigns";
@@ -10,13 +11,25 @@ import { Button } from "@/components/ui/button";
 import { Plus, Upload } from "lucide-react";
 import Link from "next/link";
 
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function DashboardPage() {
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(" ")[0] ?? session?.user?.email?.split("@")[0] ?? "";
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Overview</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {firstName ? `${getGreeting()}, ${firstName}` : "Overview"}
+          </h2>
           <p className="text-muted-foreground">
             Monitor your messaging performance and account health.
           </p>

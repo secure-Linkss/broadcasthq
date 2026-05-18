@@ -1,6 +1,6 @@
 ﻿export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { db, campaigns, contacts } from '@/lib/db'
+import { db, campaigns, contacts, templates } from '@/lib/db'
 import { getSessionUser } from '@/lib/session'
 import { eq, and, gte, sql } from 'drizzle-orm'
 
@@ -14,7 +14,7 @@ export async function GET() {
   const since7d  = new Date(Date.now() - 7  * 86_400_000)
 
   try {
-    const [lowDelivery, inactiveCount, newVips] = await Promise.all([
+    const [lowDelivery, inactiveCount, newVips, pendingTemplates] = await Promise.all([
       db.select({
         id:           campaigns.id,
         name:         campaigns.name,
@@ -50,6 +50,13 @@ export async function GET() {
         gte(contacts.createdAt, since7d),
       ))
       .limit(5),
+
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(templates)
+        .where(and(
+          eq(templates.workspaceId, workspaceId),
+          eq(templates.status, 'pending'),
+        )),
     ])
 
     const alerts: {
@@ -94,6 +101,17 @@ export async function GET() {
         title:  `${newVips.length} new VIP contact${newVips.length > 1 ? 's' : ''}`,
         detail: `${names}${extra} reached VIP tier this week`,
         action: { label: 'View', href: '/contacts' },
+      })
+    }
+
+    const pendingCount = pendingTemplates[0]?.count ?? 0
+    if (pendingCount > 0) {
+      alerts.push({
+        id:     'pending-templates',
+        type:   'warning',
+        title:  `${pendingCount} template${pendingCount > 1 ? 's' : ''} awaiting Meta approval`,
+        detail: 'Templates must be approved before use in campaigns',
+        action: { label: 'View', href: '/templates' },
       })
     }
 

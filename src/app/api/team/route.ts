@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       status:       'invited',
     }).returning({ id: users.id, email: users.email, name: users.name, role: users.role })
 
-    return NextResponse.json({ success: true, member: invited }, { status: 201 })
+    return NextResponse.json({ success: true, member: invited, tempPassword }, { status: 201 })
   } catch (err: any) {
     if (err?.code === '23505') {
       return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 })

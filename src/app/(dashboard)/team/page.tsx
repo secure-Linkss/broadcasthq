@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Plus, MoreHorizontal, Shield, Edit3, Eye, Trash2, Loader2 } from "lucide-react";
+import { Plus, MoreHorizontal, Shield, Edit3, Eye, Trash2, Loader2, Copy, Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -40,6 +40,8 @@ export default function TeamPage() {
   const [inviteForm, setInviteForm]   = useState({ name: "", email: "", role: "editor" });
   const [inviting, setInviting]       = useState(false);
   const [removingId, setRemovingId]   = useState<string | null>(null);
+  const [tempCreds, setTempCreds]     = useState<{ email: string; password: string } | null>(null);
+  const [copied, setCopied]           = useState(false);
 
   const myRole = session?.user?.role ?? "";
   const canManage = ["owner", "admin", "super_admin"].includes(myRole);
@@ -47,8 +49,8 @@ export default function TeamPage() {
   const load = () => {
     setLoading(true);
     fetch("/api/team")
-      .then(r => r.ok ? r.json() : [])
-      .then(setMembers)
+      .then(r => r.ok ? r.json() : { members: [] })
+      .then(d => setMembers(d.members ?? []))
       .finally(() => setLoading(false));
   };
 
@@ -67,6 +69,9 @@ export default function TeamPage() {
       if (res.ok) {
         toast.success(`Invitation sent to ${inviteForm.email}.`);
         setIsInviteOpen(false);
+        if (data.tempPassword) {
+          setTempCreds({ email: inviteForm.email, password: data.tempPassword });
+        }
         setInviteForm({ name: "", email: "", role: "editor" });
         load();
       } else {
@@ -116,8 +121,45 @@ export default function TeamPage() {
     return <Eye className="h-3 w-3 mr-1 text-muted-foreground" />;
   };
 
+  const copyPassword = () => {
+    if (!tempCreds) return;
+    navigator.clipboard.writeText(tempCreds.password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Temp credentials dialog shown after successful invite */}
+      <Dialog open={!!tempCreds} onOpenChange={o => { if (!o) { setTempCreds(null); setCopied(false); } }}>
+        <DialogContent className="sm:max-w-[440px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Invite Created</DialogTitle>
+            <DialogDescription>
+              Share these credentials with <strong>{tempCreds?.email}</strong>. They can change their password after first login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Email</Label>
+              <Input value={tempCreds?.email ?? ""} readOnly className="bg-background font-mono text-sm" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Temporary Password</Label>
+              <div className="flex gap-2">
+                <Input value={tempCreds?.password ?? ""} readOnly className="bg-background font-mono text-sm" />
+                <Button type="button" variant="outline" size="icon" onClick={copyPassword} className="shrink-0">
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">This password will not be shown again. Copy it now.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setTempCreds(null); setCopied(false); }}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Team Members</h2>

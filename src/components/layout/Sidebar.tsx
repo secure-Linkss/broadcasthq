@@ -45,11 +45,20 @@ const secondaryNavItems = [
   { name: "Help",     href: "/help",     icon: HelpCircle },
 ];
 
-function NavItem({ item, pathname }: { item: { name: string; href: string; icon: React.ElementType }; pathname: string }) {
+function NavItem({
+  item,
+  pathname,
+  onClose,
+}: {
+  item: { name: string; href: string; icon: React.ElementType };
+  pathname: string;
+  onClose?: () => void;
+}) {
   const isActive = pathname.startsWith(item.href);
   return (
     <Link
       href={item.href}
+      onClick={onClose}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
         isActive
@@ -63,7 +72,7 @@ function NavItem({ item, pathname }: { item: { name: string; href: string; icon:
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === "super_admin";
@@ -81,7 +90,7 @@ export function Sidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center px-5">
+      <div className="flex h-16 items-center px-5 shrink-0">
         <Logo size="sm" href="/dashboard" />
       </div>
 
@@ -89,7 +98,7 @@ export function Sidebar() {
         {/* Main nav */}
         <nav className="space-y-0.5 px-3">
           {mainNavItems.map(item => (
-            <NavItem key={item.name} item={item} pathname={pathname} />
+            <NavItem key={item.name} item={item} pathname={pathname} onClose={onClose} />
           ))}
         </nav>
 
@@ -100,7 +109,7 @@ export function Sidebar() {
           </h3>
           <nav className="space-y-0.5 px-3">
             {toolsNavItems.map(item => (
-              <NavItem key={item.name} item={item} pathname={pathname} />
+              <NavItem key={item.name} item={item} pathname={pathname} onClose={onClose} />
             ))}
           </nav>
         </div>
@@ -112,7 +121,7 @@ export function Sidebar() {
           </h3>
           <nav className="space-y-0.5 px-3">
             {secondaryNavItems.map(item => (
-              <NavItem key={item.name} item={item} pathname={pathname} />
+              <NavItem key={item.name} item={item} pathname={pathname} onClose={onClose} />
             ))}
           </nav>
         </div>
@@ -123,6 +132,7 @@ export function Sidebar() {
             <div className="h-px bg-border mb-3" />
             <Link
               href="/admin/dashboard"
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 pathname.startsWith("/admin")
@@ -138,7 +148,7 @@ export function Sidebar() {
       </div>
 
       {/* User footer */}
-      <div className="border-t border-border p-4 space-y-1">
+      <div className="border-t border-border p-4 space-y-1 shrink-0">
         <div className="flex items-center gap-3 rounded-md px-2 py-2">
           <Avatar className="h-8 w-8 shrink-0 border border-border">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={session?.user?.name ?? "avatar"} />}

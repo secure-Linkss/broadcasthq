@@ -5,28 +5,31 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Filter, Phone, Send, Paperclip, MoreVertical, CheckCircle2, UserCircle2, Clock, MessageSquare } from "lucide-react";
+import {
+  Search, Filter, Phone, Send, Paperclip, MoreVertical,
+  CheckCircle2, UserCircle2, Clock, MessageSquare, ArrowLeft,
+} from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface Conversation {
   contactId: string;
-  phone: string;
+  phone:     string;
   firstName: string | null;
-  lastName: string | null;
+  lastName:  string | null;
   lastMessage: string | null;
-  lastStatus: string;
-  sentAt: string;
-  readAt: string | null;
+  lastStatus:  string;
+  sentAt:    string;
+  readAt:    string | null;
 }
 
 interface Message {
-  id: string;
-  content: string | null;
-  status: string;
-  sentAt: string;
+  id:          string;
+  content:     string | null;
+  status:      string;
+  sentAt:      string;
   deliveredAt: string | null;
-  readAt: string | null;
+  readAt:      string | null;
   errorReason: string | null;
 }
 
@@ -35,12 +38,12 @@ function contactName(c: Conversation) {
 }
 
 function formatTime(isoDate: string) {
-  const d = new Date(isoDate);
-  const now = new Date();
+  const d       = new Date(isoDate);
+  const now     = new Date();
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
   if (diffDays === 0) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return d.toLocaleDateString([], { weekday: "short" });
+  if (diffDays < 7)  return d.toLocaleDateString([], { weekday: "short" });
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
@@ -52,21 +55,23 @@ export default function InboxPage() {
   const [loadingList, setLoadingList]     = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
   const [search, setSearch]               = useState("");
+  // Mobile: 'list' shows conversation list, 'thread' shows active chat
+  const [mobileView, setMobileView]       = useState<"list" | "thread">("list");
 
   const loadConversations = useCallback(async () => {
     setLoadingList(true);
     try {
-      const res = await fetch("/api/inbox");
+      const res  = await fetch("/api/inbox");
       const data = await res.json();
       const convs: Conversation[] = data.conversations ?? [];
       setConversations(convs);
-      if (convs.length > 0 && !activeConv) setActiveConv(convs[0]);
+      // Only auto-select on desktop (mobileView stays 'list')
     } catch {
       // keep empty state
     } finally {
       setLoadingList(false);
     }
-  }, [activeConv]);
+  }, []);
 
   useEffect(() => { loadConversations(); }, []);
 
@@ -86,11 +91,26 @@ export default function InboxPage() {
     c.phone.includes(search)
   );
 
+  function selectConv(conv: Conversation) {
+    setActiveConv(conv);
+    setMobileView("thread");
+  }
+
+  function backToList() {
+    setMobileView("list");
+  }
+
   return (
-    <div className="h-[calc(100vh-8rem)] flex border border-border rounded-xl overflow-hidden bg-card">
-      {/* Left Panel: Conversation List */}
-      <div className="w-80 flex flex-col border-r border-border bg-card/50">
-        <div className="p-4 border-b border-border space-y-4">
+    <div className="h-[calc(100dvh-8rem)] flex border border-border rounded-xl overflow-hidden bg-card">
+
+      {/* ── Left Panel: Conversation List ──────────────────────────────── */}
+      {/* Desktop: always visible. Mobile: visible only when mobileView='list' */}
+      <div className={cn(
+        "flex flex-col border-r border-border bg-card/50",
+        "w-full sm:w-80 md:w-80 shrink-0",
+        mobileView === "thread" ? "hidden sm:flex" : "flex"
+      )}>
+        <div className="p-4 border-b border-border space-y-3 shrink-0">
           <h2 className="font-bold text-lg">Inbox</h2>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -135,13 +155,13 @@ export default function InboxPage() {
               : filtered.map(conv => (
                 <div
                   key={conv.contactId}
-                  onClick={() => setActiveConv(conv)}
+                  onClick={() => selectConv(conv)}
                   className={cn(
                     "p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors flex gap-3",
                     activeConv?.contactId === conv.contactId ? "bg-muted/50 border-l-2 border-l-primary" : ""
                   )}
                 >
-                  <Avatar className="h-10 w-10 border border-border">
+                  <Avatar className="h-10 w-10 border border-border shrink-0">
                     <AvatarFallback>{contactName(conv).charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
@@ -160,35 +180,49 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* Middle Panel: Chat Thread */}
-      <div className="flex-1 flex flex-col bg-[#0b1020]">
+      {/* ── Middle Panel: Chat Thread ───────────────────────────────────── */}
+      {/* Desktop: always visible. Mobile: visible only when mobileView='thread' */}
+      <div className={cn(
+        "flex-1 flex flex-col bg-[#0b1020] min-w-0",
+        mobileView === "list" ? "hidden sm:flex" : "flex"
+      )}>
         {activeConv ? (
           <>
             {/* Header */}
-            <div className="h-16 flex items-center justify-between px-6 border-b border-border bg-card">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9 border border-border">
+            <div className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-border bg-card shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {/* Back button — mobile only */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="sm:hidden h-8 w-8 shrink-0 text-muted-foreground"
+                  onClick={backToList}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border shrink-0">
                   <AvatarFallback>{contactName(activeConv).charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="font-semibold text-sm">{contactName(activeConv)}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm truncate">{contactName(activeConv)}</h3>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> {activeConv.phone}
+                    <Phone className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{activeConv.phone}</span>
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Open</Badge>
-                <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <Badge variant="outline" className="hidden sm:flex bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Open</Badge>
+                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4">
               {loadingThread
                 ? Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className={cn("flex flex-col max-w-[70%]", i % 2 === 0 ? "" : "ml-auto items-end")}>
-                      <Skeleton className="h-12 w-56 rounded-2xl" />
+                      <Skeleton className="h-12 w-48 sm:w-56 rounded-2xl" />
                     </div>
                   ))
                 : messages.length === 0
@@ -199,7 +233,7 @@ export default function InboxPage() {
                     </div>
                   )
                   : messages.map(msg => (
-                    <div key={msg.id} className="flex flex-col max-w-[75%] ml-auto items-end">
+                    <div key={msg.id} className="flex flex-col max-w-[85%] sm:max-w-[75%] ml-auto items-end">
                       <span className="text-[10px] text-muted-foreground mb-1 mr-1 flex items-center gap-1">
                         <UserCircle2 className="h-3 w-3" /> Broadcast
                       </span>
@@ -217,7 +251,7 @@ export default function InboxPage() {
             </div>
 
             {/* Composer */}
-            <div className="p-4 border-t border-border bg-card">
+            <div className="p-3 sm:p-4 border-t border-border bg-card shrink-0">
               <div className="flex gap-2 mb-2">
                 <button
                   className={cn("text-xs font-medium px-3 py-1.5 rounded-md transition-colors", activeTab === "messages" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted")}
@@ -229,33 +263,33 @@ export default function InboxPage() {
                   className={cn("text-xs font-medium px-3 py-1.5 rounded-md transition-colors", activeTab === "notes" ? "bg-yellow-500/10 text-yellow-500" : "text-muted-foreground hover:bg-muted")}
                   onClick={() => setActiveTab("notes")}
                 >
-                  Internal Note
+                  Note
                 </button>
               </div>
               <div className={cn(
                 "flex items-end gap-2 p-2 border rounded-xl bg-background focus-within:ring-1 focus-within:ring-primary transition-shadow",
                 activeTab === "notes" ? "border-yellow-500/50 bg-yellow-500/5" : "border-border"
               )}>
-                <Button variant="ghost" size="icon" className="shrink-0 rounded-full text-muted-foreground hover:text-foreground">
-                  <Paperclip className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="shrink-0 rounded-full text-muted-foreground hover:text-foreground h-8 w-8">
+                  <Paperclip className="h-4 w-4" />
                 </Button>
                 <textarea
-                  className="flex-1 bg-transparent border-0 resize-none outline-none min-h-[40px] max-h-[120px] text-sm py-2"
-                  placeholder={activeTab === "messages" ? "Type a message..." : "Internal note (customer won't see this)..."}
+                  className="flex-1 bg-transparent border-0 resize-none outline-none min-h-[36px] max-h-[100px] text-sm py-1.5"
+                  placeholder={activeTab === "messages" ? "Type a message..." : "Internal note..."}
                   rows={1}
                 />
-                <Button size="icon" className="shrink-0 rounded-full">
-                  <Send className="h-4 w-4 ml-0.5" />
+                <Button size="icon" className="shrink-0 rounded-full h-8 w-8">
+                  <Send className="h-3.5 w-3.5 ml-0.5" />
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-2">
-                Replies are sent via WhatsApp Business API. Contact must have messaged you first (24h window).
+              <p className="text-[10px] text-muted-foreground mt-1.5 hidden sm:block">
+                Replies sent via WhatsApp Business API. Contact must have messaged you first (24h window).
               </p>
             </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
+            <div className="text-center px-4">
               <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p className="font-medium">Select a conversation</p>
               <p className="text-sm mt-1">Choose a contact from the left panel.</p>
@@ -264,41 +298,41 @@ export default function InboxPage() {
         )}
       </div>
 
-      {/* Right Panel: Contact Details */}
+      {/* ── Right Panel: Contact Details — desktop only ─────────────────── */}
       {activeConv && (
-        <div className="w-64 border-l border-border bg-card hidden lg:block overflow-y-auto">
+        <div className="w-60 border-l border-border bg-card hidden lg:block overflow-y-auto shrink-0">
           <div className="p-6 text-center border-b border-border">
-            <Avatar className="h-20 w-20 mx-auto mb-4 border-2 border-primary/20">
-              <AvatarFallback className="text-2xl">{contactName(activeConv).charAt(0).toUpperCase()}</AvatarFallback>
+            <Avatar className="h-16 w-16 mx-auto mb-3 border-2 border-primary/20">
+              <AvatarFallback className="text-xl">{contactName(activeConv).charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <h3 className="font-bold">{contactName(activeConv)}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{activeConv.phone}</p>
+            <h3 className="font-bold text-sm">{contactName(activeConv)}</h3>
+            <p className="text-xs text-muted-foreground mt-1">{activeConv.phone}</p>
           </div>
 
           <div className="p-4 space-y-4">
             <div>
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Details</h4>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phone</span>
-                  <span className="font-mono text-xs">{activeConv.phone}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground text-xs">Phone</span>
+                  <span className="font-mono text-xs truncate">{activeConv.phone}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Last msg</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground text-xs">Last msg</span>
                   <span className="text-xs">{formatTime(activeConv.sentAt)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Read</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground text-xs">Read</span>
                   <span className="text-xs">{activeConv.readAt ? formatTime(activeConv.readAt) : "—"}</span>
                 </div>
               </div>
             </div>
 
             <div className="pt-4 border-t border-border">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Recent Activity</h4>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Activity</h4>
               <div className="space-y-3">
                 <div className="flex gap-2">
-                  <div className="mt-0.5">
+                  <div className="mt-0.5 shrink-0">
                     {activeConv.readAt
                       ? <CheckCircle2 className="h-3 w-3 text-green-500" />
                       : <Clock className="h-3 w-3 text-primary" />

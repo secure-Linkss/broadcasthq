@@ -40,13 +40,13 @@ const navItems = [
   { name: "Settings",      href: "/admin/settings",    icon: Settings },
 ];
 
-export function AdminNav() {
+export function AdminNav({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center gap-3 px-6 border-b border-border">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive">
+      <div className="flex h-16 items-center gap-3 px-6 border-b border-border shrink-0">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive shrink-0">
           <ShieldAlert className="h-5 w-5 text-white" />
         </div>
         <div>
@@ -63,6 +63,7 @@ export function AdminNav() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={onClose}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive
@@ -70,7 +71,7 @@ export function AdminNav() {
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <item.icon className={cn("h-4 w-4", isActive ? "text-destructive" : "text-muted-foreground")} />
+                <item.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-destructive" : "text-muted-foreground")} />
                 {item.name}
               </Link>
             );
@@ -78,19 +79,20 @@ export function AdminNav() {
         </nav>
       </div>
 
-      <div className="border-t border-border p-3 space-y-1">
+      <div className="border-t border-border p-3 space-y-1 shrink-0">
         <Link
           href="/dashboard"
+          onClick={onClose}
           className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 shrink-0" />
           Back to App
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: '/login' })}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-4 w-4 shrink-0" />
           Sign Out
         </button>
       </div>

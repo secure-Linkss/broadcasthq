@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { Search, Bell, CheckCheck, Ticket, Megaphone, Info, AlertTriangle } from "lucide-react";
+import { Search, Bell, CheckCheck, Ticket, Megaphone, Info, AlertTriangle, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "./SidebarContext";
 
 interface DBNotification {
   id: string;
@@ -28,11 +29,11 @@ interface DBNotification {
 }
 
 const TYPE_ICON: Record<string, { icon: React.ReactNode; color: string }> = {
-  ticket_created:  { icon: <Ticket className="h-4 w-4" />,      color: "text-blue-500"   },
-  ticket_replied:  { icon: <Ticket className="h-4 w-4" />,      color: "text-green-500"  },
-  ticket_resolved: { icon: <Ticket className="h-4 w-4" />,      color: "text-green-600"  },
-  campaign_complete:{ icon: <Megaphone className="h-4 w-4" />,  color: "text-primary"    },
-  system:          { icon: <AlertTriangle className="h-4 w-4" />,color: "text-yellow-500" },
+  ticket_created:   { icon: <Ticket className="h-4 w-4" />,       color: "text-blue-500"   },
+  ticket_replied:   { icon: <Ticket className="h-4 w-4" />,       color: "text-green-500"  },
+  ticket_resolved:  { icon: <Ticket className="h-4 w-4" />,       color: "text-green-600"  },
+  campaign_complete:{ icon: <Megaphone className="h-4 w-4" />,    color: "text-primary"    },
+  system:           { icon: <AlertTriangle className="h-4 w-4" />, color: "text-yellow-500" },
 };
 
 function NotificationCenter() {
@@ -54,7 +55,7 @@ function NotificationCenter() {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 30_000); // poll every 30s
+    const iv = setInterval(load, 30_000);
     return () => clearInterval(iv);
   }, [load]);
 
@@ -90,7 +91,7 @@ function NotificationCenter() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[380px] p-0 shadow-2xl" sideOffset={8}>
+      <PopoverContent align="end" className="w-[min(380px,calc(100vw-2rem))] p-0 shadow-2xl" sideOffset={8}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-primary" />
@@ -175,20 +176,35 @@ function NotificationCenter() {
   );
 }
 
+// Page title from pathname
+function usePageTitle(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const segment  = segments[segments.length - 1] || "dashboard";
+  return segment.charAt(0).toUpperCase() + segment.replace(/-/g, " ").slice(1);
+}
+
 export function Topbar() {
   const pathname = usePathname();
-
-  const segments = pathname.split("/").filter(Boolean);
-  const currentSegment = segments[segments.length - 1] || "dashboard";
-  const title = currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
+  const title    = usePageTitle(pathname);
+  const { toggle } = useSidebar();
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-      <div className="flex items-center gap-4">
-        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-4 md:px-6">
+      <div className="flex items-center gap-3">
+        {/* Hamburger — visible only on mobile */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden text-muted-foreground hover:text-foreground"
+          onClick={toggle}
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <h1 className="text-base md:text-lg font-semibold text-foreground">{title}</h1>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3">
         <div className="relative hidden md:block">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input

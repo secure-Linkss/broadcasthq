@@ -152,7 +152,7 @@ function ContactDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-[420px] sm:w-[480px] flex flex-col gap-0 p-0">
+      <SheetContent className="w-full sm:w-[420px] md:w-[480px] flex flex-col gap-0 p-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
           <div className="flex items-start gap-4">
             <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg shrink-0">
@@ -323,7 +323,7 @@ function ListHealthSheet({
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-[420px] sm:w-[480px] flex flex-col gap-0 p-0">
+      <SheetContent className="w-full sm:w-[420px] md:w-[480px] flex flex-col gap-0 p-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
           <SheetTitle className="flex items-center gap-2">
             <HeartPulse className="h-5 w-5 text-primary" />
@@ -676,7 +676,7 @@ export default function ContactsPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">

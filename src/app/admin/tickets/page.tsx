@@ -159,7 +159,7 @@ export default function AdminTicketsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
           { label: "Total",       value: stats.total ?? 0,       color: "" },
           { label: "Open",        value: stats.open ?? 0,        color: "text-blue-500" },
@@ -224,6 +224,7 @@ export default function AdminTicketsPage() {
               <p className="text-muted-foreground">No tickets found</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -270,13 +271,14 @@ export default function AdminTicketsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Detail Dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[90dvh] flex flex-col">
           {detail && (
             <>
               <DialogHeader>

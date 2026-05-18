@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Plus, MoreHorizontal, Shield, Edit3, Eye, Trash2, Loader2, Copy, Check } from "lucide-react";
+import { Plus, MoreHorizontal, Shield, Edit3, Eye, Trash2, Loader2, Copy, Check, KeyRound } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -79,6 +79,26 @@ export default function TeamPage() {
       }
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleResetPassword = async (memberId: string, memberEmail: string) => {
+    if (!confirm(`Reset password for ${memberEmail}? A new temporary password will be generated.`)) return;
+    setRemovingId(memberId);
+    try {
+      const res  = await fetch(`/api/team/${memberId}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ resetPassword: true }),
+      });
+      const data = await res.json();
+      if (res.ok && data.tempPassword) {
+        setTempCreds({ email: memberEmail, password: data.tempPassword });
+      } else {
+        toast.error(data.error ?? "Failed to reset password.");
+      }
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -305,6 +325,11 @@ export default function TeamPage() {
                             </DropdownMenuItem>
                           ))}
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleResetPassword(member.id, member.email)}
+                          >
+                            <KeyRound className="mr-2 h-4 w-4" /> Reset Password
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => handleRemove(member.id, member.email)}

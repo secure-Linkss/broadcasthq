@@ -4,6 +4,8 @@ import { db, users } from '@/lib/db'
 import { eq, and, ne } from 'drizzle-orm'
 import { getSessionUser, unauthorizedJson, forbiddenJson, serverErrorJson } from '@/lib/session'
 import { z } from 'zod'
+import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -15,8 +17,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const { id } = await params
 
   const schema = z.object({
-    role:   z.enum(['admin', 'editor', 'viewer']).optional(),
-    status: z.enum(['active', 'suspended']).optional(),
+    role:          z.enum(['admin', 'editor', 'viewer']).optional(),
+    status:        z.enum(['active', 'suspended']).optional(),
+    resetPassword: z.boolean().optional(),
   })
 
   try {
@@ -34,12 +37,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Cannot modify workspace owner' }, { status: 403 })
     }
 
+    const { resetPassword, ...fields } = parsed.data
+
+    let tempPassword: string | undefined
+    const updateSet: Record<string, unknown> = { ...fields }
+
+    if (resetPassword) {
+      tempPassword = randomBytes(16).toString('hex')
+      updateSet.passwordHash = await bcrypt.hash(tempPassword, 12)
+    }
+
     const [updated] = await db.update(users)
-      .set(parsed.data)
+      .set(updateSet)
       .where(and(eq(users.id, id), eq(users.workspaceId, user.workspaceId!)))
       .returning({ id: users.id, email: users.email, name: users.name, role: users.role, status: users.status })
 
-    return NextResponse.json({ member: updated })
+    return NextResponse.json({ member: updated, ...(tempPassword ? { tempPassword } : {}) })
   } catch (err) {
     console.error('PATCH /api/team/[id]:', err)
     return serverErrorJson()

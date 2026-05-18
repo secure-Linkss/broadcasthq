@@ -13,23 +13,48 @@ export interface PersonalizationContext {
   agentName?:       string
   invoiceNumber?:   string
   appointmentDate?: string
+  refNumber?:       string
+  caseNo?:          string
+  orderId?:         string
+  trackingNumber?:  string
+  dueDate?:         string
+  amount?:          string
+  accountNumber?:   string
+  policyNumber?:    string
+  ticketId?:        string
+  promoCode?:       string
   [key: string]:    string | null | undefined
 }
 
 // All supported built-in variables with descriptions
-export const BUILT_IN_VARIABLES: { variable: string; description: string; example: string }[] = [
-  { variable: '{{first_name}}',      description: "Contact's first name",          example: 'Sarah'            },
-  { variable: '{{last_name}}',       description: "Contact's last name",           example: 'Jenkins'          },
-  { variable: '{{full_name}}',       description: "Contact's full name",           example: 'Sarah Jenkins'    },
-  { variable: '{{phone}}',           description: "Contact's phone number",        example: '+234 801 234 5678' },
-  { variable: '{{email}}',           description: "Contact's email address",       example: 'sarah@acme.com'   },
-  { variable: '{{city}}',            description: "Contact's city",                example: 'Lagos'            },
-  { variable: '{{country}}',         description: "Contact's country",             example: 'Nigeria'          },
-  { variable: '{{business_name}}',   description: 'Your business name',            example: 'Acme Corp'        },
-  { variable: '{{agent_name}}',      description: 'Agent/sender name',             example: 'Alex'             },
-  { variable: '{{today_date}}',      description: "Today's date",                  example: '15/05/2026'       },
-  { variable: '{{appointment_date}}',description: 'Appointment date',              example: '20/05/2026 10:00' },
-  { variable: '{{invoice_number}}',  description: 'Invoice/order number',          example: 'INV-00123'        },
+export const BUILT_IN_VARIABLES: { variable: string; description: string; example: string; group: string }[] = [
+  // Contact info
+  { variable: '{{first_name}}',       description: "Contact's first name",       example: 'Sarah',               group: 'Contact'     },
+  { variable: '{{last_name}}',        description: "Contact's last name",        example: 'Jenkins',             group: 'Contact'     },
+  { variable: '{{full_name}}',        description: "Contact's full name",        example: 'Sarah Jenkins',       group: 'Contact'     },
+  { variable: '{{phone}}',            description: "Contact's phone number",     example: '+234 801 234 5678',   group: 'Contact'     },
+  { variable: '{{email}}',            description: "Contact's email address",    example: 'sarah@acme.com',      group: 'Contact'     },
+  { variable: '{{city}}',             description: "Contact's city",             example: 'Lagos',               group: 'Contact'     },
+  { variable: '{{country}}',          description: "Contact's country",          example: 'Nigeria',             group: 'Contact'     },
+  // Business & sender
+  { variable: '{{business_name}}',    description: 'Your business name',         example: 'Acme Corp',           group: 'Business'    },
+  { variable: '{{agent_name}}',       description: 'Agent/sender name',          example: 'Alex',                group: 'Business'    },
+  // Dates & time
+  { variable: '{{today_date}}',       description: "Today's date",               example: '15/05/2026',          group: 'Date & Time' },
+  { variable: '{{appointment_date}}', description: 'Appointment date/time',      example: '20/05/2026 10:00am',  group: 'Date & Time' },
+  { variable: '{{due_date}}',         description: 'Payment/action due date',    example: '31/05/2026',          group: 'Date & Time' },
+  // References & IDs
+  { variable: '{{ref_number}}',       description: 'Reference number',           example: 'REF-20260518',        group: 'Reference'   },
+  { variable: '{{case_no}}',          description: 'Case/ticket number',         example: 'CASE-00456',          group: 'Reference'   },
+  { variable: '{{invoice_number}}',   description: 'Invoice/order number',       example: 'INV-00123',           group: 'Reference'   },
+  { variable: '{{order_id}}',         description: 'Order ID',                   example: 'ORD-789',             group: 'Reference'   },
+  { variable: '{{tracking_number}}',  description: 'Shipment tracking number',   example: 'TRK-GB1234567890',    group: 'Reference'   },
+  { variable: '{{ticket_id}}',        description: 'Support ticket ID',          example: 'TKT-3310',            group: 'Reference'   },
+  { variable: '{{policy_number}}',    description: 'Policy/account policy no.',  example: 'POL-2026-00789',      group: 'Reference'   },
+  { variable: '{{account_number}}',   description: 'Account number',             example: 'ACC-112233',          group: 'Reference'   },
+  // Financial
+  { variable: '{{amount}}',           description: 'Payment amount',             example: '£149.99',             group: 'Finance'     },
+  { variable: '{{promo_code}}',       description: 'Promo/discount code',        example: 'SAVE30',              group: 'Finance'     },
 ]
 
 // Parse all {{variable}} tokens from a template string
@@ -63,6 +88,16 @@ function resolveVariable(name: string, fallback: string, ctx: PersonalizationCon
     invoice_number:   ctx.invoiceNumber,
     appointment_date: ctx.appointmentDate,
     today_date:       new Date().toLocaleDateString('en-GB'),
+    ref_number:       ctx.refNumber,
+    case_no:          ctx.caseNo,
+    order_id:         ctx.orderId,
+    tracking_number:  ctx.trackingNumber,
+    due_date:         ctx.dueDate,
+    amount:           ctx.amount,
+    account_number:   ctx.accountNumber,
+    policy_number:    ctx.policyNumber,
+    ticket_id:        ctx.ticketId,
+    promo_code:       ctx.promoCode,
     ...ctx, // custom fields
   }
 

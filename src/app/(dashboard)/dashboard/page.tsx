@@ -20,7 +20,8 @@ function getGreeting() {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const firstName = session?.user?.name?.split(" ")[0] ?? session?.user?.email?.split("@")[0] ?? "";
+  const rawFirst  = session?.user?.name?.split(" ")[0] ?? session?.user?.email?.split("@")[0] ?? "";
+  const firstName = rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1).toLowerCase();
 
   return (
     <div className="space-y-6">

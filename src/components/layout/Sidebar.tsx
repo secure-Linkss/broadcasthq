@@ -23,6 +23,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const mainNavItems = [
   { name: "Dashboard",  href: "/dashboard",  icon: LayoutDashboard },
@@ -80,7 +81,9 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     ? session.user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "??";
 
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl]       = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/profile")
       .then(r => r.ok ? r.json() : null)
@@ -88,10 +91,32 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       .catch(() => {});
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    fetch("/api/workspace")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.workspace?.name) setWorkspaceName(d.workspace.name); })
+      .catch(() => {});
+  }, [session?.user?.workspaceId]);
+
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center px-5 shrink-0">
+      <div className="flex flex-col justify-center px-5 pt-4 pb-3 shrink-0 min-h-[72px]">
         <Logo size="sm" href="/dashboard" />
+        <AnimatePresence>
+          {workspaceName && (
+            <motion.div
+              key={workspaceName}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="mt-1.5 ml-[38px] flex items-center gap-1.5"
+            >
+              <span className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase leading-none">for</span>
+              <span className="text-[11px] font-semibold text-primary truncate max-w-[140px] leading-none">{workspaceName}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">

@@ -17,6 +17,16 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -289,11 +299,13 @@ function ContactDetailSheet({
         </ScrollArea>
 
         <div className="px-6 py-4 border-t border-border flex gap-2">
-          <Button className="flex-1" size="sm">
-            <MessageSquare className="mr-2 h-4 w-4" /> Send Message
+          <Button className="flex-1" size="sm" asChild>
+            <Link href="/inbox">
+              <MessageSquare className="mr-2 h-4 w-4" /> Send Message
+            </Link>
           </Button>
-          <Button variant="outline" size="sm" className="flex-1">
-            <User className="mr-2 h-4 w-4" /> Edit Contact
+          <Button variant="outline" size="sm" className="flex-1" onClick={onClose}>
+            <User className="mr-2 h-4 w-4" /> Close
           </Button>
         </div>
       </SheetContent>
@@ -307,10 +319,14 @@ function ListHealthSheet({
   contacts,
   open,
   onClose,
+  onExport,
+  onFilterInactive,
 }: {
-  contacts: Contact[];
-  open: boolean;
-  onClose: () => void;
+  contacts:        Contact[];
+  open:            boolean;
+  onClose:         () => void;
+  onExport:        () => void;
+  onFilterInactive:() => void;
 }) {
   const total = contacts.length;
   const active = contacts.filter(c => c.status === "active").length;
@@ -452,11 +468,11 @@ function ListHealthSheet({
         </ScrollArea>
 
         <div className="px-6 py-4 border-t border-border flex gap-2">
-          <Button variant="outline" className="flex-1" size="sm">
-            <Download className="mr-2 h-4 w-4" /> Export Report
+          <Button variant="outline" className="flex-1" size="sm" onClick={() => { onExport(); onClose(); }}>
+            <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
-          <Button className="flex-1" size="sm">
-            <RefreshCw className="mr-2 h-4 w-4" /> Run Cleanup
+          <Button className="flex-1" size="sm" onClick={() => { onFilterInactive(); onClose(); }}>
+            <RefreshCw className="mr-2 h-4 w-4" /> Filter Inactive
           </Button>
         </div>
       </SheetContent>
@@ -483,7 +499,10 @@ export default function ContactsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailContact, setDetailContact] = useState<Contact | null>(null);
-  const [healthOpen, setHealthOpen] = useState(false);
+  const [healthOpen, setHealthOpen]       = useState(false);
+  const [addOpen, setAddOpen]             = useState(false);
+  const [addForm, setAddForm]             = useState({ phone: "", firstName: "", lastName: "", email: "", tags: "" });
+  const [addSaving, setAddSaving]         = useState(false);
 
   useEffect(() => {
     api.contacts.list().then((res) => {
@@ -521,6 +540,37 @@ export default function ContactsPage() {
     setSelectedIds(next);
   };
 
+  const handleAddContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddSaving(true);
+    try {
+      const tags = addForm.tags.split(",").map(t => t.trim()).filter(Boolean);
+      const contact = await api.contacts.create({
+        phone:        addForm.phone.trim(),
+        firstName:    addForm.firstName.trim() || undefined,
+        lastName:     addForm.lastName.trim()  || undefined,
+        email:        addForm.email.trim()     || undefined,
+        tags,
+        status:       "active",
+        customFields: {},
+        engagementTier:  undefined,
+        engagementScore: undefined,
+        lastActive:      null,
+        lastEngagedAt:   null,
+        totalMessagesReceived: undefined,
+        totalMessagesRead:     undefined,
+        totalReplies:          undefined,
+      } as any);
+      setContacts(prev => [contact, ...prev]);
+      setAddOpen(false);
+      setAddForm({ phone: "", firstName: "", lastName: "", email: "", tags: "" });
+    } catch (err: any) {
+      alert(err?.message ?? "Failed to add contact.");
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
   const exportContacts = (ids?: string[]) => {
     const params = new URLSearchParams();
     if (ids?.length) {
@@ -553,7 +603,7 @@ export default function ContactsPage() {
               Import
             </Link>
           </Button>
-          <Button className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto" onClick={() => setAddOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Contact
           </Button>
@@ -656,13 +706,25 @@ export default function ContactsPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2.5 rounded-lg border border-primary/20 text-sm font-medium">
-          <span>{selectedIds.size} selected</span>
-          <div className="h-4 w-px bg-primary/30 mx-1" />
-          <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary">Add Tag</Button>
-          <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary" onClick={() => exportContacts([...selectedIds])}>Export</Button>
-          <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary">Add to Campaign</Button>
-          <Button variant="ghost" size="sm" className="h-7 text-destructive hover:bg-destructive/20 hover:text-destructive ml-auto">
+        <div className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2.5 rounded-lg border border-primary/20 text-sm font-medium flex-wrap">
+          <span className="shrink-0">{selectedIds.size} selected</span>
+          <div className="h-4 w-px bg-primary/30 mx-1 shrink-0" />
+          <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary" onClick={() => exportContacts([...selectedIds])}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Export
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 hover:bg-primary/20 hover:text-primary" asChild>
+            <Link href="/campaigns/new">Add to Campaign</Link>
+          </Button>
+          <Button
+            variant="ghost" size="sm"
+            className="h-7 text-destructive hover:bg-destructive/20 hover:text-destructive ml-auto"
+            onClick={async () => {
+              if (!confirm(`Delete ${selectedIds.size} contact(s)? This cannot be undone.`)) return;
+              await Promise.all([...selectedIds].map(id => fetch(`/api/contacts/${id}`, { method: "DELETE" })));
+              setContacts(prev => prev.filter(c => !selectedIds.has(c.id)));
+              setSelectedIds(new Set());
+            }}
+          >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
           </Button>
         </div>
@@ -801,7 +863,85 @@ export default function ContactsPage() {
         contacts={contacts}
         open={healthOpen}
         onClose={() => setHealthOpen(false)}
+        onExport={() => exportContacts()}
+        onFilterInactive={() => { setTierFilter("inactive"); setStatusFilter("all"); }}
       />
+
+      {/* Add Contact Dialog */}
+      <Dialog open={addOpen} onOpenChange={open => { setAddOpen(open); if (!open) setAddForm({ phone: "", firstName: "", lastName: "", email: "", tags: "" }); }}>
+        <DialogContent className="sm:max-w-[460px] bg-card border-border">
+          <form onSubmit={handleAddContact}>
+            <DialogHeader>
+              <DialogTitle>Add Contact</DialogTitle>
+              <DialogDescription>Add a single contact to your workspace audience.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="ac-phone">Phone Number <span className="text-destructive">*</span></Label>
+                <Input
+                  id="ac-phone"
+                  placeholder="+447911123456"
+                  value={addForm.phone}
+                  onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))}
+                  className="bg-background font-mono"
+                  required
+                />
+                <p className="text-[10px] text-muted-foreground">Include country code. E.g. +44 for UK, +1 for US.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="ac-first">First Name</Label>
+                  <Input
+                    id="ac-first"
+                    placeholder="Jane"
+                    value={addForm.firstName}
+                    onChange={e => setAddForm(f => ({ ...f, firstName: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="ac-last">Last Name</Label>
+                  <Input
+                    id="ac-last"
+                    placeholder="Smith"
+                    value={addForm.lastName}
+                    onChange={e => setAddForm(f => ({ ...f, lastName: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="ac-email">Email Address</Label>
+                <Input
+                  id="ac-email"
+                  type="email"
+                  placeholder="jane@example.com"
+                  value={addForm.email}
+                  onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))}
+                  className="bg-background"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="ac-tags">Tags</Label>
+                <Input
+                  id="ac-tags"
+                  placeholder="vip, newsletter, uk-customer"
+                  value={addForm.tags}
+                  onChange={e => setAddForm(f => ({ ...f, tags: e.target.value }))}
+                  className="bg-background"
+                />
+                <p className="text-[10px] text-muted-foreground">Comma-separated tags for segmentation.</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={addSaving}>
+                {addSaving ? "Saving…" : "Add Contact"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

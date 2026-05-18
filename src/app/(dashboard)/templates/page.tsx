@@ -711,28 +711,29 @@ export default function TemplatesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(tmpl => (
-            <Card key={tmpl.id} className="group hover:border-primary/40 transition-all flex flex-col">
-              <CardContent className="p-4 flex flex-col h-full gap-3">
-                {/* Image header thumbnail */}
-                {tmpl.headerType === "image" && tmpl.headerUrl && (
-                  <div className="w-full h-24 rounded-lg overflow-hidden border border-border -mt-0.5">
-                    <img src={tmpl.headerUrl} alt="" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                {tmpl.carouselImages && tmpl.carouselImages.length > 0 && (
-                  <div className="flex gap-1.5 -mt-0.5">
-                    {tmpl.carouselImages.slice(0, 3).map((img, i) => (
-                      <div key={i} className="flex-1 h-16 rounded-lg overflow-hidden border border-border relative">
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                        {i === 2 && tmpl.carouselImages!.length > 3 && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-bold">
-                            +{tmpl.carouselImages!.length - 3}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <Card key={tmpl.id} className="group hover:border-primary/40 transition-all flex flex-col overflow-hidden">
+              {/* Full-bleed image header at card top */}
+              {tmpl.headerType === "image" && tmpl.headerUrl && (
+                <div className="w-full h-36 overflow-hidden shrink-0 border-b border-border">
+                  <img src={tmpl.headerUrl} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                </div>
+              )}
+              {/* Carousel strip at card top */}
+              {(!tmpl.headerUrl || tmpl.headerType !== "image") && tmpl.carouselImages && tmpl.carouselImages.length > 0 && (
+                <div className="flex border-b border-border overflow-hidden shrink-0 h-28">
+                  {tmpl.carouselImages.slice(0, 3).map((img, i) => (
+                    <div key={i} className="flex-1 relative">
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      {i === 2 && tmpl.carouselImages!.length > 3 && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-bold">
+                          +{tmpl.carouselImages!.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <CardContent className="p-4 flex flex-col flex-1 gap-3">
 
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2">
@@ -914,8 +915,10 @@ export default function TemplatesPage() {
                 <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={() => duplicate(previewTemplate)}>
                   <Copy className="h-3.5 w-3.5" /> Duplicate
                 </Button>
-                <Button size="sm" className="flex-1 gap-1.5">
-                  <Zap className="h-3.5 w-3.5" /> Use in Campaign
+                <Button size="sm" className="flex-1 gap-1.5" asChild>
+                  <a href={`/campaigns/new?template=${encodeURIComponent(previewTemplate.name)}`}>
+                    <Zap className="h-3.5 w-3.5" /> Use in Campaign
+                  </a>
                 </Button>
               </div>
             </>

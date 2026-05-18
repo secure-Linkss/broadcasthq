@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, RefreshCw, Trash2, Ban, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 interface AdminWorkspace {
   id: string; name: string; planId: string; subscriptionStatus: string | null;
@@ -51,19 +52,23 @@ export default function AdminWorkspacesPage() {
 
   async function patch(id: string, body: Record<string, unknown>) {
     setActioning(id);
-    await fetch(`/api/admin/workspaces/${id}`, {
+    const res = await fetch(`/api/admin/workspaces/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     setActioning(null);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Failed to update workspace."); return; }
+    toast.success("Workspace updated.");
     load();
   }
 
   async function deleteWs(id: string) {
     setActioning(id);
-    await fetch(`/api/admin/workspaces/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/workspaces/${id}`, { method: "DELETE" });
     setActioning(null);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Failed to delete workspace."); return; }
+    toast.success("Workspace deleted.");
     setConfirmDelete(null);
     load();
   }

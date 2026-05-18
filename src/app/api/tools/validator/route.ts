@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, contacts } from '@/lib/db'
 import { and, eq, inArray } from 'drizzle-orm'
+import { getSessionUser } from '@/lib/session'
 
 const COUNTRY_CODES: Record<string, string> = {
   '1':    'US/CA', '7':  'RU',  '20':  'EG',  '27':  'ZA', '30':  'GR',
@@ -55,8 +56,8 @@ function detectCountry(e164: string): string | null {
 }
 
 function normalizeNumber(raw: string): string | null {
-  let s = raw.replace(/[\s\-().+]/g, '')
-  s = raw.replace(/[^\d+]/g, '')
+  let s = raw.replace(/[\s\-().]/g, '')
+  s = s.replace(/[^\d+]/g, '')
   if (!s.startsWith('+')) s = '+' + s
   s = s.replace(/[^+\d]/g, '')
   return s
@@ -68,9 +69,12 @@ const E164_RE = /^\+[1-9]\d{6,14}$/
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getSessionUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const body = await request.json()
     const numbers: string[] = body.numbers ?? []
-    const workspaceId: string | undefined = body.workspaceId
+    const workspaceId: string = user.workspaceId!
 
     if (!Array.isArray(numbers) || numbers.length === 0) {
       return NextResponse.json({ error: 'No numbers provided' }, { status: 400 })
@@ -101,7 +105,7 @@ export async function POST(request: NextRequest) {
     })
 
     // DB check for existing contacts
-    if (workspaceId && validNormalized.length > 0) {
+    if (validNormalized.length > 0) {
       try {
         const existing = await db
           .select({ phone: contacts.phone })

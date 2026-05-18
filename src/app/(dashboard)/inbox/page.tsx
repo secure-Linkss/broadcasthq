@@ -31,6 +31,7 @@ interface Message {
   deliveredAt: string | null;
   readAt:      string | null;
   errorReason: string | null;
+  direction:   string;
 }
 
 function contactName(c: Conversation) {
@@ -55,6 +56,8 @@ export default function InboxPage() {
   const [loadingList, setLoadingList]     = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
   const [search, setSearch]               = useState("");
+  const [replyText, setReplyText]         = useState("");
+  const [sendingReply, setSendingReply]   = useState(false);
   // Mobile: 'list' shows conversation list, 'thread' shows active chat
   const [mobileView, setMobileView]       = useState<"list" | "thread">("list");
 
@@ -98,6 +101,25 @@ export default function InboxPage() {
 
   function backToList() {
     setMobileView("list");
+  }
+
+  async function sendReply() {
+    if (!activeConv || !replyText.trim() || sendingReply) return;
+    setSendingReply(true);
+    try {
+      const res  = await fetch(`/api/inbox/${activeConv.contactId}`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ content: replyText.trim(), type: activeTab === "notes" ? "note" : "message" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.message) {
+        setMessages(prev => [...prev, { ...data.message, sentAt: data.message.sentAt ?? new Date().toISOString() }]);
+        setReplyText("");
+      }
+    } finally {
+      setSendingReply(false);
+    }
   }
 
   return (
@@ -277,8 +299,16 @@ export default function InboxPage() {
                   className="flex-1 bg-transparent border-0 resize-none outline-none min-h-[36px] max-h-[100px] text-sm py-1.5"
                   placeholder={activeTab === "messages" ? "Type a message..." : "Internal note..."}
                   rows={1}
+                  value={replyText}
+                  onChange={e => setReplyText(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
                 />
-                <Button size="icon" className="shrink-0 rounded-full h-8 w-8">
+                <Button
+                  size="icon"
+                  className="shrink-0 rounded-full h-8 w-8"
+                  onClick={sendReply}
+                  disabled={!replyText.trim() || sendingReply}
+                >
                   <Send className="h-3.5 w-3.5 ml-0.5" />
                 </Button>
               </div>

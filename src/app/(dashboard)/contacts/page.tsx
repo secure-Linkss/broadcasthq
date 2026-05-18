@@ -72,6 +72,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import { getTierConfig, getAllTiers } from "@/lib/engagement";
 
@@ -492,6 +493,7 @@ const TIER_FILTERS: { label: string; value: EngagementTier | "all" }[] = [
 ];
 
 export default function ContactsPage() {
+  const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -503,6 +505,9 @@ export default function ContactsPage() {
   const [addOpen, setAddOpen]             = useState(false);
   const [addForm, setAddForm]             = useState({ phone: "", firstName: "", lastName: "", email: "", tags: "" });
   const [addSaving, setAddSaving]         = useState(false);
+  const [deletingId, setDeletingId]       = useState<string | null>(null);
+  const [tagsContact, setTagsContact]     = useState<Contact | null>(null);
+  const [tagsInput, setTagsInput]         = useState("");
 
   useEffect(() => {
     api.contacts.list().then((res) => {
@@ -569,6 +574,39 @@ export default function ContactsPage() {
     } finally {
       setAddSaving(false);
     }
+  };
+
+  const handleDeleteContact = async (contact: Contact) => {
+    if (!confirm(`Delete ${contact.firstName ?? contact.phone}? This cannot be undone.`)) return;
+    setDeletingId(contact.id);
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setContacts(prev => prev.filter(c => c.id !== contact.id));
+        setSelectedIds(prev => { const n = new Set(prev); n.delete(contact.id); return n; });
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const openManageTags = (contact: Contact) => {
+    setTagsContact(contact);
+    setTagsInput((contact.tags ?? []).join(", "));
+  };
+
+  const handleSaveTags = async () => {
+    if (!tagsContact) return;
+    const tags = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
+    const res  = await fetch(`/api/contacts/${tagsContact.id}`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ tags }),
+    });
+    if (res.ok) {
+      setContacts(prev => prev.map(c => c.id === tagsContact.id ? { ...c, tags } : c));
+    }
+    setTagsContact(null);
   };
 
   const exportContacts = (ids?: string[]) => {
@@ -824,14 +862,18 @@ export default function ContactsPage() {
                           <DropdownMenuItem onClick={() => setDetailContact(contact)}>
                             <User className="mr-2 h-4 w-4" /> View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push("/inbox")}>
                             <MessageSquare className="mr-2 h-4 w-4" /> Send Message
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openManageTags(contact)}>
                             <Tag className="mr-2 h-4 w-4" /> Manage Tags
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive focus:text-destructive">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            disabled={deletingId === contact.id}
+                            onClick={() => handleDeleteContact(contact)}
+                          >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Contact
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -940,6 +982,31 @@ export default function ContactsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Tags Dialog */}
+      <Dialog open={!!tagsContact} onOpenChange={o => { if (!o) setTagsContact(null); }}>
+        <DialogContent className="sm:max-w-[400px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Manage Tags</DialogTitle>
+            <DialogDescription>
+              Edit tags for {tagsContact?.firstName ?? tagsContact?.phone}. Comma-separated.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={tagsInput}
+              onChange={e => setTagsInput(e.target.value)}
+              placeholder="vip, newsletter, uk-customer"
+              className="bg-background"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1.5">Separate tags with commas.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTagsContact(null)}>Cancel</Button>
+            <Button onClick={handleSaveTags}>Save Tags</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

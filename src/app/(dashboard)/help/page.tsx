@@ -464,6 +464,7 @@ function TicketsList() {
 export default function HelpPage() {
   const online = isSupportOnline();
   const [stats, setStats] = useState<Record<string, number> | null>(null);
+  const [helpSearch, setHelpSearch] = useState("");
 
   useEffect(() => {
     fetch("/api/support/stats")
@@ -518,11 +519,16 @@ export default function HelpPage() {
         <TabsContent value="help" className="space-y-6 pt-4">
           <div className="relative max-w-xl">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search documentation..." className="pl-9 h-11 bg-background" />
+            <Input
+              placeholder="Search documentation..."
+              className="pl-9 h-11 bg-background"
+              value={helpSearch}
+              onChange={e => setHelpSearch(e.target.value)}
+            />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {CATEGORIES.map(cat => (
+            {CATEGORIES.filter(cat => !helpSearch || cat.title.toLowerCase().includes(helpSearch.toLowerCase()) || cat.articles.some(a => a.toLowerCase().includes(helpSearch.toLowerCase()))).map(cat => (
               <Card key={cat.title} className="hover:border-primary/50 transition-colors">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -551,7 +557,7 @@ export default function HelpPage() {
               <HelpCircle className="h-5 w-5 text-primary" /> Frequently Asked Questions
             </h3>
             <div className="space-y-3">
-              {FAQS.map(faq => (
+              {FAQS.filter(faq => !helpSearch || faq.q.toLowerCase().includes(helpSearch.toLowerCase()) || faq.a.toLowerCase().includes(helpSearch.toLowerCase())).map(faq => (
                 <Card key={faq.q}>
                   <CardContent className="p-4">
                     <p className="font-medium text-sm mb-1">{faq.q}</p>

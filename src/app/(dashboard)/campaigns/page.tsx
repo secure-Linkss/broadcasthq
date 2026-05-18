@@ -16,6 +16,7 @@ export default function CampaignsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<"list" | "grid">("list");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     api.campaigns.list().then((res) => {
@@ -32,9 +33,14 @@ export default function CampaignsPage() {
     draft: campaigns.filter((c) => c.status === "draft").length,
   };
 
-  const filteredCampaigns = campaigns.filter(c => 
-    activeFilter === "all" ? true : c.status === activeFilter
-  );
+  const filteredCampaigns = campaigns.filter(c => {
+    if (activeFilter !== "all" && c.status !== activeFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return c.name.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -102,6 +108,8 @@ export default function CampaignsPage() {
               type="search"
               placeholder="Search campaigns..."
               className="pl-9 bg-card"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
             />
           </div>
           <Button variant="outline" size="icon" className="shrink-0 bg-card">

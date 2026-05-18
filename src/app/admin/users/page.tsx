@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, RefreshCw, Trash2, ShieldCheck, UserX, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 interface AdminUser {
   id: string; email: string; name: string | null; role: string; status: string;
@@ -58,15 +59,19 @@ export default function AdminUsersPage() {
 
   async function patch(id: string, body: Record<string, unknown>) {
     setActioning(id);
-    await fetch(`/api/admin/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(`/api/admin/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setActioning(null);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Failed to update user."); return; }
+    toast.success("User updated.");
     load();
   }
 
   async function deleteUser(id: string) {
     setActioning(id);
-    await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
     setActioning(null);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Failed to delete user."); return; }
+    toast.success("User deleted.");
     setConfirmDelete(null);
     load();
   }

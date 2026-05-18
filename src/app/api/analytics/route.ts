@@ -133,6 +133,7 @@ export async function GET(request: NextRequest) {
         activeContacts:    activeContactsRes[0].c,
         totalCampaigns:    totalCampaignsRes[0].c,
         replyCount,
+        monthlySpend:      0,
       },
       trends,
       bestSendHour: bestHour ? `${bestHour.hour}:00` : null,

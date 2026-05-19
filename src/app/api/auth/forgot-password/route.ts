@@ -4,9 +4,8 @@ import { SignJWT } from 'jose'
 import { db, users } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 
-const SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET ?? 'fallback-secret-change-in-production'
-)
+if (!process.env.NEXTAUTH_SECRET) throw new Error('NEXTAUTH_SECRET env var is required')
+const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET)
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,9 +29,11 @@ export async function POST(request: NextRequest) {
 
       const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/reset-password?token=${token}`
 
-      // In production: send email via Resend/SendGrid/SES
-      // For now, log to console (visible in Vercel logs)
-      console.log(`[PASSWORD RESET] Email: ${user.email} | Link: ${resetUrl}`)
+      // TODO: send via email (Resend/SendGrid/SES) — do NOT log the URL in production
+      // The reset URL contains a bearer credential valid for 1 hour.
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV ONLY] Password reset link for ${user.email}: ${resetUrl}`)
+      }
     }
 
     // Always return success to prevent email enumeration

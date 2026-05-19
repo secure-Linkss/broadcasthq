@@ -16,6 +16,11 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
+    const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: 'File too large. Maximum size is 10 MB.' }, { status: 413 })
+    }
+
     const text = await file.text()
     let rows: Record<string, string>[]
 

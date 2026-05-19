@@ -77,7 +77,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     const [ws] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, id)).limit(1)
     if (!ws) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
 
-    const tempPassword = randomBytes(6).toString('hex')
+    const tempPassword = randomBytes(16).toString('hex')
     const passwordHash = await bcrypt.hash(tempPassword, 12)
 
     const [user] = await db.insert(users).values({

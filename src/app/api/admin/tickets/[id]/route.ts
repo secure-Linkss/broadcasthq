@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { db, supportTickets, ticketMessages, notifications } from '@/lib/db'
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, and } from 'drizzle-orm'
 import { getSessionUser, unauthorizedJson, forbiddenJson, serverErrorJson, notFoundJson, badRequestJson } from '@/lib/session'
 import { z } from 'zod'
 
@@ -24,8 +24,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   if (!['super_admin', 'admin', 'owner'].includes(user.role)) return forbiddenJson()
 
   try {
+    const whereClause = user.role === 'super_admin'
+      ? eq(supportTickets.id, params.id)
+      : and(eq(supportTickets.id, params.id), eq(supportTickets.workspaceId, user.workspaceId!))
+
     const [ticket] = await db.select().from(supportTickets)
-      .where(eq(supportTickets.id, params.id))
+      .where(whereClause)
       .limit(1)
     if (!ticket) return notFoundJson('Ticket')
 
@@ -46,8 +50,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if (!['super_admin', 'admin', 'owner'].includes(user.role)) return forbiddenJson()
 
   try {
+    const whereClause = user.role === 'super_admin'
+      ? eq(supportTickets.id, params.id)
+      : and(eq(supportTickets.id, params.id), eq(supportTickets.workspaceId, user.workspaceId!))
+
     const [ticket] = await db.select().from(supportTickets)
-      .where(eq(supportTickets.id, params.id))
+      .where(whereClause)
       .limit(1)
     if (!ticket) return notFoundJson('Ticket')
 

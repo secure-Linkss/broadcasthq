@@ -5,9 +5,8 @@ import bcrypt from 'bcryptjs'
 import { db, users } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 
-const SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET ?? 'fallback-secret-change-in-production'
-)
+if (!process.env.NEXTAUTH_SECRET) throw new Error('NEXTAUTH_SECRET env var is required')
+const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET)
 
 export async function POST(request: NextRequest) {
   try {

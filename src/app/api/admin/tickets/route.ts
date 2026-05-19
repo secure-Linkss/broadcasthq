@@ -19,6 +19,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const conditions: SQL[] = []
+    // Non-super_admin roles can only see tickets from their own workspace
+    if (user.role !== 'super_admin' && user.workspaceId) {
+      conditions.push(eq(supportTickets.workspaceId, user.workspaceId))
+    }
     if (status)   conditions.push(eq(supportTickets.status, status))
     if (priority) conditions.push(eq(supportTickets.priority, priority))
     if (category) conditions.push(eq(supportTickets.category, category))

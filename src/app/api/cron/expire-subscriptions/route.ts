@@ -6,7 +6,7 @@ import { sql, and, lte, ne, eq } from 'drizzle-orm'
 // Runs daily — finds past_due/expired subscriptions and downgrades to free
 export async function GET(request: NextRequest) {
   const secret = request.headers.get('x-cron-secret') ?? request.nextUrl.searchParams.get('secret')
-  if (secret !== process.env.CRON_SECRET && process.env.CRON_SECRET) {
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -3,7 +3,10 @@
  * Supports: Anthropic, OpenAI, Google Gemini, NVIDIA NIM (OpenAI-compatible).
  * Each workspace can bring their own API key + choose their provider.
  * Platform fallback: ANTHROPIC_API_KEY env var (optional).
+ * API keys are encrypted at rest with AES-256-GCM (PLATFORM_ENCRYPTION_KEY env).
  */
+
+import { createCipheriv, createDecipheriv, randomBytes as cryptoRandomBytes, createHmac } from 'crypto'
 
 export type AiProvider = 'anthropic' | 'openai' | 'google' | 'nvidia' | 'none'
 
@@ -27,32 +30,48 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   none:      '',
 }
 
-// ─── Simple XOR obfuscation for API keys at rest ─────────────────────────────
-// Not strong crypto — but prevents plain-text exposure in DB dumps.
-// For true encryption, use AES-256-GCM with PLATFORM_KEY env.
+// ─── AES-256-GCM encryption for AI API keys at rest ─────────────────────────
+// Requires PLATFORM_ENCRYPTION_KEY env var (64 hex chars = 32 bytes).
+// Generate with: openssl rand -hex 32
+// Legacy XOR-encrypted values (no "aes:" prefix) are decrypted with XOR fallback.
 
-function getObfuscationKey(): string {
-  return process.env.NEXTAUTH_SECRET?.slice(0, 32) ?? 'broadcasthq-default-obfuscation-key'
+function getEncryptionKey(): Buffer {
+  const hex = process.env.PLATFORM_ENCRYPTION_KEY
+  if (!hex || hex.length < 64) {
+    // Derive a stable 32-byte key from NEXTAUTH_SECRET as fallback (better than XOR)
+    const secret = process.env.NEXTAUTH_SECRET ?? 'broadcasthq-default-CHANGE-THIS'
+    return Buffer.from(createHmac('sha256', 'bhq-enc-key').update(secret).digest())
+  }
+  return Buffer.from(hex.slice(0, 64), 'hex')
 }
 
 export function encryptApiKey(plaintext: string): string {
-  const key = getObfuscationKey()
-  const buf = Buffer.from(plaintext, 'utf8')
-  const out = Buffer.alloc(buf.length)
-  for (let i = 0; i < buf.length; i++) {
-    out[i] = buf[i] ^ key.charCodeAt(i % key.length)
-  }
-  return out.toString('base64')
+  const key = getEncryptionKey()
+  const iv  = cryptoRandomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  // Format: "aes:<iv_hex>:<tag_hex>:<ciphertext_hex>"
+  return `aes:${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`
 }
 
 export function decryptApiKey(encrypted: string): string {
-  const key = getObfuscationKey()
-  const buf = Buffer.from(encrypted, 'base64')
-  const out = Buffer.alloc(buf.length)
-  for (let i = 0; i < buf.length; i++) {
-    out[i] = buf[i] ^ key.charCodeAt(i % key.length)
+  // Legacy XOR fallback for values stored before AES migration
+  if (!encrypted.startsWith('aes:')) {
+    const key = (process.env.NEXTAUTH_SECRET?.slice(0, 32) ?? 'broadcasthq-default-obfuscation-key')
+    const buf = Buffer.from(encrypted, 'base64')
+    const out = Buffer.alloc(buf.length)
+    for (let i = 0; i < buf.length; i++) out[i] = buf[i] ^ key.charCodeAt(i % key.length)
+    return out.toString('utf8')
   }
-  return out.toString('utf8')
+  const [, ivHex, tagHex, cipherHex] = encrypted.split(':')
+  const key      = getEncryptionKey()
+  const iv       = Buffer.from(ivHex, 'hex')
+  const tag      = Buffer.from(tagHex, 'hex')
+  const cipherBuf = Buffer.from(cipherHex, 'hex')
+  const decipher = createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(tag)
+  return Buffer.concat([decipher.update(cipherBuf), decipher.final()]).toString('utf8')
 }
 
 // ─── Chat completion abstraction ─────────────────────────────────────────────

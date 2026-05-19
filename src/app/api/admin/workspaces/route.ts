@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     if (ownerEmail?.trim()) {
       const bcrypt = await import('bcryptjs')
       const { randomBytes } = await import('crypto')
-      const tempPassword = randomBytes(6).toString('hex')
+      const tempPassword = randomBytes(16).toString('hex')
       const passwordHash = await bcrypt.hash(tempPassword, 12)
 
       const [owner] = await db.insert(users).values({

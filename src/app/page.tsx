@@ -1222,10 +1222,10 @@ export default function LandingPage() {
               {
                 title: "Product",
                 links: [
-                  { label: "Features", href: "/features" },
-                  { label: "Pricing",  href: "/pricing" },
-                  { label: "Changelog", href: "#" },
-                  { label: "Roadmap",  href: "#" },
+                  { label: "Features",  href: "/features" },
+                  { label: "Pricing",   href: "/pricing" },
+                  { label: "Changelog", href: "/changelog" },
+                  { label: "Roadmap",   href: "/roadmap" },
                 ],
               },
               {
@@ -1241,7 +1241,6 @@ export default function LandingPage() {
                 links: [
                   { label: "About",   href: "/about" },
                   { label: "Blog",    href: "#" },
-                  { label: "Careers", href: "#" },
                   { label: "Contact", href: "/contact" },
                 ],
               },

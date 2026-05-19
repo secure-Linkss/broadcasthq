@@ -40,10 +40,10 @@ const toolsNavItems = [
 ];
 
 const secondaryNavItems = [
-  { name: "Team",     href: "/team",     icon: Building2 },
-  { name: "Billing",  href: "/billing",  icon: CreditCard },
-  { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Help",     href: "/help",     icon: HelpCircle },
+  { name: "Team",     href: "/team",     icon: Building2, roles: null },
+  { name: "Billing",  href: "/billing",  icon: CreditCard, roles: ["owner", "admin", "super_admin"] },
+  { name: "Settings", href: "/settings", icon: Settings,   roles: null },
+  { name: "Help",     href: "/help",     icon: HelpCircle, roles: null },
 ];
 
 function NavItem({
@@ -51,7 +51,7 @@ function NavItem({
   pathname,
   onClose,
 }: {
-  item: { name: string; href: string; icon: React.ElementType };
+  item: { name: string; href: string; icon: React.ElementType; roles?: string[] | null };
   pathname: string;
   onClose?: () => void;
 }) {
@@ -77,6 +77,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === "super_admin";
+  const userRole = session?.user?.role ?? "";
   const initials = session?.user?.name
     ? session.user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "??";
@@ -145,9 +146,11 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             Workspace
           </h3>
           <nav className="space-y-0.5 px-3">
-            {secondaryNavItems.map(item => (
-              <NavItem key={item.name} item={item} pathname={pathname} onClose={onClose} />
-            ))}
+            {secondaryNavItems
+              .filter(item => !item.roles || item.roles.includes(userRole))
+              .map(item => (
+                <NavItem key={item.name} item={item} pathname={pathname} onClose={onClose} />
+              ))}
           </nav>
         </div>
 

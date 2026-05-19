@@ -63,3 +63,47 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function POST(request: NextRequest) {
+  if (!await requireSuperAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  try {
+    const body = await request.json()
+    const { name, planId = 'free', ownerEmail, ownerName } = body
+
+    if (!name?.trim()) return NextResponse.json({ error: 'Workspace name is required' }, { status: 400 })
+
+    // Create workspace
+    const [ws] = await db.insert(workspaces).values({
+      name:               name.trim(),
+      planId:             planId ?? 'free',
+      subscriptionStatus: planId === 'free' ? 'inactive' : 'active',
+      isActive:           true,
+    }).returning()
+
+    // Optionally create owner user
+    if (ownerEmail?.trim()) {
+      const bcrypt = await import('bcryptjs')
+      const { randomBytes } = await import('crypto')
+      const tempPassword = randomBytes(6).toString('hex')
+      const passwordHash = await bcrypt.hash(tempPassword, 12)
+
+      const [owner] = await db.insert(users).values({
+        email:       ownerEmail.trim().toLowerCase(),
+        name:        ownerName?.trim() || ownerEmail.split('@')[0],
+        passwordHash,
+        role:        'owner',
+        status:      'invited',
+        workspaceId: ws.id,
+      }).returning({ id: users.id, email: users.email })
+
+      return NextResponse.json({ workspace: ws, owner, tempPassword }, { status: 201 })
+    }
+
+    return NextResponse.json({ workspace: ws }, { status: 201 })
+  } catch (err: any) {
+    console.error('POST /api/admin/workspaces:', err)
+    if (err?.code === '23505') return NextResponse.json({ error: 'A user with that email already exists' }, { status: 409 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+

@@ -9,7 +9,7 @@ import {
   Building2,
   Megaphone,
   CreditCard,
-  BarChart3,
+  TrendingUp,
   Settings,
   ShieldAlert,
   LogOut,
@@ -27,6 +27,7 @@ import { signOut } from "next-auth/react";
 const navItems = [
   { name: "Overview",      href: "/admin/dashboard",   icon: LayoutDashboard },
   { name: "Intelligence",  href: "/admin/analytics",   icon: Brain },
+  { name: "Revenue",       href: "/admin/revenue",     icon: TrendingUp },
   { name: "Security",      href: "/admin/security",    icon: Shield },
   { name: "System Health", href: "/admin/system",      icon: Activity },
   { name: "Users",         href: "/admin/users",       icon: Users },

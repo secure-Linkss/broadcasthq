@@ -632,10 +632,194 @@ const steps = [
   },
 ];
 
+/* ─── Demo Modal ─── */
+const DEMO_STEPS = [
+  {
+    title: "Import Contacts in Seconds",
+    desc: "Upload any CSV — our AI mapper auto-detects columns like name, phone, and tags. No manual column matching needed.",
+    visual: (
+      <div className="rounded-xl border border-white/10 bg-white/5 p-5 font-mono text-xs space-y-2">
+        <div className="text-white/40 mb-3">CSV Preview — 3,421 contacts detected</div>
+        {[["First Name","Phone","Email","Tag"],["Alice","447700123456","alice@co.com","VIP"],["Bob","447700654321","bob@co.com","Lead"],["Carol","447700111222","carol@co.com","Customer"]].map((row,i)=>(
+          <div key={i} className={`grid grid-cols-4 gap-2 py-1 ${i===0?"text-violet-400 border-b border-white/10":""}`}>
+            {row.map((c,j)=><span key={j} className={i===0?"":"text-white/70"}>{c}</span>)}
+          </div>
+        ))}
+        <div className="mt-3 flex gap-2">
+          <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">✓ Phone mapped</span>
+          <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">✓ Name mapped</span>
+          <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">✓ Tags mapped</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "Build & Schedule Campaigns",
+    desc: "Craft messages with dynamic variables like {{name}} and {{company}}. Schedule to any timezone — or send instantly.",
+    visual: (
+      <div className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm font-bold">BH</div>
+          <div className="text-sm text-white/70 font-medium">BroadcastHQ Campaign</div>
+        </div>
+        <div className="rounded-lg bg-white/10 p-3 text-sm text-white/80 leading-relaxed">
+          Hi <span className="text-violet-400">{'{{name}}'}</span>! 👋<br/>
+          We have an exclusive offer for <span className="text-violet-400">{'{{company}}'}</span> — 30% off this week only.<br/>
+          Tap to claim: <span className="text-blue-400 underline">broadcasthq.app/offer</span>
+        </div>
+        <div className="flex gap-3 text-xs text-white/40">
+          <span>📅 Scheduled: Mon 9:00 AM GMT</span>
+          <span>·</span>
+          <span>👥 3,421 recipients</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "Real-Time Analytics",
+    desc: "Track delivery, read rates, and failures as messages send. Identify the best send times and top-performing templates.",
+    visual: (
+      <div className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-3">
+        <div className="grid grid-cols-3 gap-3">
+          {[["Delivered","3,289","96.1%","text-green-400"],["Read","2,701","79.0%","text-blue-400"],["Failed","132","3.9%","text-red-400"]].map(([l,v,p,c])=>(
+            <div key={l} className="rounded-lg bg-white/5 p-3 text-center">
+              <div className={`text-lg font-bold ${c}`}>{v}</div>
+              <div className="text-xs text-white/40 mt-0.5">{l}</div>
+              <div className={`text-xs ${c} mt-1`}>{p}</div>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2 pt-1">
+          {[["Delivery rate","96.1%","bg-green-500",96],["Read rate","79.0%","bg-blue-500",79],["Fail rate","3.9%","bg-red-500",4]].map(([l,p,c,w])=>(
+            <div key={l as string} className="flex items-center gap-3 text-xs">
+              <span className="w-24 text-white/50">{l}</span>
+              <div className="flex-1 h-1.5 rounded-full bg-white/10">
+                <div className={`h-full rounded-full ${c}`} style={{width:`${w}%`}} />
+              </div>
+              <span className="w-10 text-right text-white/60">{p}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+];
+
+function DemoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const total = DEMO_STEPS.length;
+
+  useEffect(() => {
+    if (!open) setStep(0);
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            className="relative z-10 w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0f1629] shadow-2xl overflow-hidden"
+            initial={{ scale: 0.92, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.92, opacity: 0, y: 20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-4">
+              <div>
+                <div className="text-xs text-violet-400 font-medium mb-1">Product Demo · Step {step + 1} of {total}</div>
+                <h3 className="text-lg font-bold text-white">{DEMO_STEPS[step].title}</h3>
+              </div>
+              <button onClick={onClose} className="text-white/40 hover:text-white transition-colors text-xl leading-none">×</button>
+            </div>
+
+            {/* Progress bar */}
+            <div className="px-6 mb-4">
+              <div className="h-0.5 w-full bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-violet-500 rounded-full"
+                  animate={{ width: `${((step + 1) / total) * 100}%` }}
+                  transition={{ duration: 0.4 }}
+                />
+              </div>
+            </div>
+
+            {/* Visual */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                className="px-6"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25 }}
+              >
+                {DEMO_STEPS[step].visual}
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Description + nav */}
+            <div className="px-6 py-5">
+              <p className="text-sm text-white/60 mb-5 leading-relaxed">{DEMO_STEPS[step].desc}</p>
+              <div className="flex items-center justify-between">
+                <div className="flex gap-1.5">
+                  {DEMO_STEPS.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setStep(i)}
+                      className={`h-1.5 rounded-full transition-all ${i === step ? "w-5 bg-violet-500" : "w-1.5 bg-white/20"}`}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  {step > 0 && (
+                    <button
+                      onClick={() => setStep(s => s - 1)}
+                      className="px-4 py-2 rounded-lg border border-white/10 text-sm text-white/60 hover:text-white hover:border-white/20 transition-colors"
+                    >
+                      Back
+                    </button>
+                  )}
+                  {step < total - 1 ? (
+                    <button
+                      onClick={() => setStep(s => s + 1)}
+                      className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-sm text-white font-medium transition-colors"
+                    >
+                      Next →
+                    </button>
+                  ) : (
+                    <Link
+                      href="/signup"
+                      onClick={onClose}
+                      className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-sm text-white font-medium transition-colors inline-block"
+                    >
+                      Start for free →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
   const mockupY = useTransform(scrollY, [0, 600], [0, 80]);
+  const [demoOpen, setDemoOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0b1020] text-foreground selection:bg-primary/30 overflow-hidden">
@@ -735,6 +919,7 @@ export default function LandingPage() {
               size="lg"
               variant="ghost"
               className="h-13 px-8 rounded-full text-base text-white/70 hover:text-white hover:bg-white/5 border border-white/10"
+              onClick={() => setDemoOpen(true)}
             >
               <Play className="h-4 w-4 mr-2 fill-current" />
               Watch demo
@@ -1089,6 +1274,8 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   );
 }

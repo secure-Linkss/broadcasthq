@@ -603,8 +603,8 @@ export default function HelpPage() {
                   <p className="font-medium">Email Support</p>
                   <p className="text-xs text-muted-foreground mt-1">Response within 24 hours on weekdays</p>
                 </div>
-                <Button variant="outline" size="sm" className="w-full text-xs">
-                  support@broadcasthq.app
+                <Button variant="outline" size="sm" className="w-full text-xs" asChild>
+                  <a href="mailto:support@broadcasthq.app">support@broadcasthq.app</a>
                 </Button>
               </CardContent>
             </Card>
@@ -616,8 +616,10 @@ export default function HelpPage() {
                   <p className="font-medium">Documentation</p>
                   <p className="text-xs text-muted-foreground mt-1">API reference, guides & tutorials</p>
                 </div>
-                <Button variant="outline" size="sm" className="w-full gap-1">
-                  docs.broadcasthq.app <ExternalLink className="h-3 w-3" />
+                <Button variant="outline" size="sm" className="w-full gap-1" asChild>
+                  <a href="https://docs.broadcasthq.app" target="_blank" rel="noopener noreferrer">
+                    docs.broadcasthq.app <ExternalLink className="h-3 w-3" />
+                  </a>
                 </Button>
               </CardContent>
             </Card>

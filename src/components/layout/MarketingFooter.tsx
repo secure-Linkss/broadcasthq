@@ -5,13 +5,12 @@ const footerLinks = {
   Product: [
     { label: "Features",  href: "/features" },
     { label: "Pricing",   href: "/pricing" },
-    { label: "Changelog", href: "#" },
-    { label: "Roadmap",   href: "#" },
+    { label: "Changelog", href: "/changelog" },
+    { label: "Roadmap",   href: "/roadmap" },
   ],
   Company: [
     { label: "About",   href: "/about" },
     { label: "Blog",    href: "#" },
-    { label: "Careers", href: "#" },
     { label: "Contact", href: "/contact" },
   ],
   Developers: [

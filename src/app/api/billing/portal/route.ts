@@ -3,11 +3,12 @@ import { NextResponse } from 'next/server'
 import { db, workspaces } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { createPortalSession } from '@/lib/stripe'
-import { getSessionUser, unauthorizedJson, badRequestJson, serverErrorJson } from '@/lib/session'
+import { getSessionUser, unauthorizedJson, badRequestJson, forbiddenJson, serverErrorJson } from '@/lib/session'
 
 export async function POST() {
   const user = await getSessionUser()
   if (!user) return unauthorizedJson()
+  if (!['owner', 'admin', 'super_admin'].includes(user.role)) return forbiddenJson('Only account owners and admins can manage billing.')
 
   try {
     const [workspace] = await db.select({

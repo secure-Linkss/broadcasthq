@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
   const user = await getSessionUser()
   if (!user) return unauthorizedJson()
   if (!user.workspaceId) return forbiddenJson()
+  if (!['owner', 'admin', 'super_admin'].includes(user.role)) return forbiddenJson('Only account owners and admins can manage billing.')
 
   try {
     const { planId } = await request.json()

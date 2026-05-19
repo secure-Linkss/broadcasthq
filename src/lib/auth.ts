@@ -1,10 +1,27 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
-import { db, users } from '@/lib/db'
+import { db, users, workspaces } from '@/lib/db'
 import { eq, or } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { recordLoginAttempt, isLoginLocked } from '@/lib/security'
+
+// Ensure a super_admin user has their own personal workspace with permanent enterprise plan
+async function ensureSuperAdminWorkspace(userId: string, name: string): Promise<string> {
+  const [user] = await db.select({ workspaceId: users.workspaceId }).from(users).where(eq(users.id, userId)).limit(1)
+  if (user?.workspaceId) return user.workspaceId
+
+  const wsName = `${name}'s Workspace`
+  const [ws] = await db.insert(workspaces).values({
+    name:               wsName,
+    planId:             'enterprise',
+    subscriptionStatus: 'active',
+    isActive:           true,
+  }).returning({ id: workspaces.id })
+
+  await db.update(users).set({ workspaceId: ws.id }).where(eq(users.id, userId))
+  return ws.id
+}
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
 
@@ -100,12 +117,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await db.update(users).set({ lastActive: new Date() }).where(eq(users.id, user.id))
         }
 
+        let workspaceId = user.workspaceId
+        // Super admins always get their own enterprise workspace
+        if (user.role === 'super_admin') {
+          workspaceId = await ensureSuperAdminWorkspace(user.id, user.name ?? user.email.split('@')[0])
+        }
+
         return {
           id:          user.id,
           email:       user.email,
           name:        user.name ?? user.email.split('@')[0],
           role:        user.role,
-          workspaceId: user.workspaceId,
+          workspaceId,
         }
       },
     }),

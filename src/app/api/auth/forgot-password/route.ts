@@ -4,10 +4,11 @@ import { SignJWT } from 'jose'
 import { db, users } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 
-if (!process.env.NEXTAUTH_SECRET) throw new Error('NEXTAUTH_SECRET env var is required')
-const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET)
-
 export async function POST(request: NextRequest) {
+  if (!process.env.NEXTAUTH_SECRET) {
+    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
+  }
+  const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET)
   try {
     const { email } = await request.json() as { email?: string }
 
